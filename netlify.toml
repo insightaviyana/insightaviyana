@@ -4,7 +4,7 @@
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
 
 # `npm run dev` runs Vite on port 3000 (matches this project's Cloud Run
 # deployment target -- see PROJECT_SCOPE.md), not Vite's own default of
