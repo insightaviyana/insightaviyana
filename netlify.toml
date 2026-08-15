@@ -1,0 +1,48 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# `npm run dev` runs Vite on port 3000 (matches this project's Cloud Run
+# deployment target -- see PROJECT_SCOPE.md), not Vite's own default of
+# 5173. Without this section, `netlify dev` waits on 5173 forever and times
+# out, even though the Vite server started fine on 3000.
+[dev]
+  command = "npm run dev"
+  targetPort = 3000
+  port = 8888
+  publish = "dist"
+  autoLaunch = false
+
+# Route the app's existing /api/gemini/... call to the Netlify Function.
+# Must come before the catch-all SPA redirect below.
+[[redirects]]
+  from = "/api/gemini/generate-response"
+  to = "/.netlify/functions/gemini-generate-response"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/create-user"
+  to = "/.netlify/functions/admin-create-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/delete-user"
+  to = "/.netlify/functions/admin-delete-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/notify/email"
+  to = "/.netlify/functions/send-notification-email"
+  status = 200
+
+# Single Page App fallback: any other path serves index.html so the
+# React app's own tab-based routing (not URL-based) always loads correctly,
+# including on hard refresh or direct link.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

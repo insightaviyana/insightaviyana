@@ -1,0 +1,6 @@
+{
+  "name": "Aviyana Ceylon Resort ORM Hub",
+  "description": "Official Reputation Management Dashboard & insight.aviyana.lk Digital Hub for Aviyana Ceylon Resort Sri Lanka",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

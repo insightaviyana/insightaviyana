@@ -1,0 +1,1340 @@
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { Navbar } from './components/Navbar';
+import { AuthModal } from './components/AuthModal';
+import { ProfileEditModal } from './components/ProfileEditModal';
+import { NotificationCenter } from './components/NotificationCenter';
+import { PublicHubView } from './components/PublicHubView';
+import { UnifiedContentEditor, UnifiedContentEditorRequest, UnifiedContentKind } from './components/UnifiedContentEditor';
+import { QuestionSubmitModal } from './components/QuestionSubmitModal';
+import { ThemeSelectorModal } from './components/ThemeSelectorModal';
+import { SocialLinksManagerModal } from './components/SocialLinksManagerModal';
+
+// Code-split everything except the public landing tab (PublicHubView, above)
+// and the small modals. These are sizeable, mostly-internal-staff views that
+// most visitors -- especially a public visitor who never logs in -- never
+// open in a given session, so there's no reason to ship their code in the
+// initial bundle. This was the single biggest contributor to the ~1.1MB
+// bundle Vite was warning about at build time.
+const DashboardView = lazy(() => import('./components/DashboardView').then(m => ({ default: m.DashboardView })));
+const GeminiAiAssistant = lazy(() => import('./components/GeminiAiAssistant').then(m => ({ default: m.GeminiAiAssistant })));
+const ContentPipelineView = lazy(() => import('./components/ContentPipelineView').then(m => ({ default: m.ContentPipelineView })));
+const SerpMonitoringView = lazy(() => import('./components/SerpMonitoringView').then(m => ({ default: m.SerpMonitoringView })));
+const FaqManagerView = lazy(() => import('./components/FaqManagerView').then(m => ({ default: m.FaqManagerView })));
+const AnnouncementsView = lazy(() => import('./components/AnnouncementsView').then(m => ({ default: m.AnnouncementsView })));
+const EducationView = lazy(() => import('./components/EducationView').then(m => ({ default: m.EducationView })));
+const UserManagementView = lazy(() => import('./components/UserManagementView').then(m => ({ default: m.UserManagementView })));
+const InvestmentView = lazy(() => import('./components/InvestmentView').then(m => ({ default: m.InvestmentView })));
+const CareersView = lazy(() => import('./components/CareersView').then(m => ({ default: m.CareersView })));
+const InquiryDeskView = lazy(() => import('./components/InquiryDeskView').then(m => ({ default: m.InquiryDeskView })));
+const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(m => ({ default: m.ActivityLogView })));
+
+// Small, centered loading indicator shown briefly while a lazy tab's code
+// downloads (usually well under a second on a normal connection).
+const TabLoadingFallback = () => (
+  <div className="flex items-center justify-center py-24">
+    <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+  </div>
+);
+import { fetchArticlesFromDb, createArticleInDb, updateArticleInDb, deleteArticleFromDb } from './lib/articlesApi';
+import {
+  fetchMilestonesFromDb, createMilestoneInDb, updateMilestoneInDb, deleteMilestoneFromDb,
+  fetchCsrImpactsFromDb, createCsrImpactInDb, updateCsrImpactInDb, deleteCsrImpactFromDb,
+  fetchVoiceCutsFromDb, createVoiceCutInDb, updateVoiceCutInDb, deleteVoiceCutFromDb,
+  fetchFactChecksFromDb, createFactCheckInDb, updateFactCheckInDb, deleteFactCheckFromDb
+} from './lib/publicHubApi';
+import {
+  fetchContentPipelineFromDb, createContentPipelineInDb, updateContentPipelineInDb, deleteContentPipelineFromDb
+} from './lib/contentPipelineApi';
+import {
+  fetchCoursesFromDb, createCourseInDb, updateCourseInDb, deleteCourseFromDb
+} from './lib/coursesApi';
+import { fetchEducationMediaFromDb, createEducationMediaInDb, deleteEducationMediaFromDb, fetchEducationPhotosFromDb, createEducationPhotoInDb, deleteEducationPhotoFromDb } from './lib/educationMediaApi';
+import { fetchInquiriesFromDb, createInquiryInDb, updateInquiryInDb } from './lib/inquiriesApi';
+import { fetchRegistrationsFromDb, createRegistrationInDb } from './lib/registrationsApi';
+import { fetchSocialLinksFromDb, upsertSocialLinkInDb, deleteSocialLinkFromDb } from './lib/socialLinksApi';
+import {
+  fetchNotificationsFromDb, createNotificationInDb, updateNotificationReadInDb, markAllNotificationsReadInDb
+} from './lib/notificationsApi';
+import { fetchActivityLogFromDb, logActivity } from './lib/activityLogApi';
+import { isSupabaseConfigured, getSupabase } from './lib/supabase';
+import { fetchProfile, fetchAllProfiles, signOutUser } from './lib/supabaseAuth';
+import { sendNotificationEmail } from './lib/emailApi';
+import { DocumentModal } from './components/DocumentModal';
+
+import { 
+  INITIAL_USERS, 
+  INITIAL_MILESTONES, 
+  INITIAL_FACT_CHECKS, 
+  INITIAL_CSR_IMPACT, 
+  INITIAL_VOICE_CUTS, 
+  INITIAL_SERP_ITEMS, 
+  INITIAL_CONTENT_PIPELINE, 
+  INITIAL_NOTIFICATIONS, 
+  INITIAL_REVIEWS,
+  INITIAL_ARTICLES,
+  INITIAL_COURSES,
+  INITIAL_SOCIAL_LINKS,
+  INITIAL_INQUIRIES,
+  INITIAL_REGISTRATIONS
+} from './data/initialData';
+
+import { 
+  User, 
+  Milestone, 
+  FactCheckItem, 
+  CSRImpact, 
+  VoiceCut, 
+  SERPItem, 
+  ContentPipelineItem, 
+  NotificationItem, 
+  ActivityLogEntry,
+  ReviewItem,
+  ArticleItem,
+  EducationCourse,
+  EducationMedia,
+  EducationPhoto,
+  SocialLink,
+  PublicInquiry,
+  UserRegistration,
+  AppTheme
+} from './types';
+
+// Default logged-out visitor identity. The public site loads in this state;
+// anyone must sign in via the Auth Modal (real Supabase Auth) to unlock more.
+const PUBLIC_USER: User = {
+  id: 'public-visitor',
+  name: 'Public Visitor',
+  role: 'PUBLIC_VISITOR',
+  accountType: 'guest',
+  title: 'Not Signed In',
+  avatar: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=150&auto=format&fit=crop&q=80',
+  email: '',
+  responsibilities: []
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<string>('public-hub');
+
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>('dark');
+  const [themeModalOpen, setThemeModalOpen] = useState<boolean>(false);
+  // Real accounts (Supabase `profiles`, same table User Management edits) once
+  // connected; falls back to the built-in mock roster only in demo mode
+  // (Supabase not configured), so the Dashboard's team directory never shows
+  // stale/local-only data.
+  const [users, setUsers] = useState<User[]>(isSupabaseConfigured ? [] : INITIAL_USERS);
+  const [currentUser, setCurrentUser] = useState<User>(PUBLIC_USER);
+
+  // Show who's signed in right in the browser tab title, so switching
+  // between tabs/windows makes it obvious which account is active without
+  // having to click back into the app first.
+  useEffect(() => {
+    const DEFAULT_TITLE = 'Aviyana Ceylon Resort | Official PR & Source of Truth Hub';
+    if (currentUser.id !== 'public-visitor') {
+      document.title = `${currentUser.name} | Aviyana Insight`;
+    } else {
+      document.title = DEFAULT_TITLE;
+    }
+  }, [currentUser.id, currentUser.name]);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  // Separate from authLoading: tracks the initial public-content fetch
+  // (articles, milestones, etc). Without this, the app rendered immediately
+  // using the built-in mock/demo arrays as initial state, so every visitor
+  // saw a brief flash of fake placeholder content before the real data
+  // swapped in a moment later. Gating the first render on this instead
+  // means nothing renders until we know what's actually real.
+  const [contentLoading, setContentLoading] = useState<boolean>(true);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  // Unified Content Editor (Priority 0, NEXT_SESSION_PLAN.md) — one modal,
+  // owned here so it can be opened from the navbar's global "+ Add Content"
+  // button OR from a contextual "Add X" button on a specific content page,
+  // pre-set to that kind. null kind = show the kind-selector step first.
+  const [contentEditorRequest, setContentEditorRequest] = useState<UnifiedContentEditorRequest | null>(null);
+  const openContentEditor = (kind: UnifiedContentKind | null, id?: string, presetValues?: Record<string, string>) => {
+    setContentEditorRequest({ kind, isEditing: !!id, id: id || null, presetValues });
+  };
+  const closeContentEditor = () => setContentEditorRequest(null);
+  // Used by the Investment page's "+ Publish Investment Update" and
+  // per-article Edit buttons: opens the same Unified Content Editor used
+  // everywhere else, pre-set to 'article' -- no tab switch needed since the
+  // editor is a top-level modal. Replaces the old cross-tab
+  // ArticleComposerIntent hand-off into AnnouncementsView's own composer.
+  const openArticleComposer = (articleId?: string, presetValues?: Record<string, string>) => openContentEditor('article', articleId, presetValues);
+  // Derived, not stored: true once we have a real signed-in admin or staff account
+  // (guests and the logged-out PUBLIC_USER both read as false).
+  const isStaffAuthenticated = currentUser.accountType === 'admin' || currentUser.accountType === 'staff';
+  const isAdmin = currentUser.accountType === 'admin';
+  // A logged-in guest reader and the logged-out PUBLIC_USER both have
+  // accountType 'guest' (that field only distinguishes staff/admin from
+  // everyone else) -- the ONLY thing that tells them apart is a real DB id
+  // vs the hardcoded 'public-visitor' placeholder. Without this distinction
+  // the navbar had no way to know a guest was actually signed in, so it kept
+  // showing "Staff Sign In" and re-opened the sign-in form on click even
+  // right after a successful guest login.
+  const isAnySignedIn = isStaffAuthenticated || currentUser.id !== 'public-visitor';
+  const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+  const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
+  const [questionModalOpen, setQuestionModalOpen] = useState<boolean>(false);
+
+  // Core Data Collections
+  const [milestones, setMilestones] = useState<Milestone[]>(INITIAL_MILESTONES);
+  const [factChecks, setFactChecks] = useState<FactCheckItem[]>(INITIAL_FACT_CHECKS);
+  const [csrImpacts, setCsrImpacts] = useState<CSRImpact[]>(INITIAL_CSR_IMPACT);
+  const [voiceCuts, setVoiceCuts] = useState<VoiceCut[]>(INITIAL_VOICE_CUTS);
+  const [serpItems, setSerpItems] = useState<SERPItem[]>(INITIAL_SERP_ITEMS);
+  const [contentPipeline, setContentPipeline] = useState<ContentPipelineItem[]>(INITIAL_CONTENT_PIPELINE);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
+
+  // Adds a notification to local state AND persists it to Supabase, so the
+  // bell icon's history survives a page reload / a different staff member
+  // logging in, instead of vanishing at the end of the browser tab's session.
+  const pushNotification = (notif: NotificationItem) => {
+    setNotifications(prev => [notif, ...prev]);
+    if (isSupabaseConfigured) createNotificationInDb(notif);
+  };
+  const [articles, setArticles] = useState<ArticleItem[]>(INITIAL_ARTICLES);
+
+  // On first load, pull real data from Supabase (if it's configured) for everything
+  // that's admin-editable on the Public Hub page. Without this, every visitor --
+  // and every page refresh -- only ever sees the built-in mock data, since nothing
+  // would otherwise be persisted anywhere.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [dbArticles, dbMilestones, dbCsrImpacts, dbVoiceCuts, dbFactChecks, dbContentPipeline, dbCourses, dbSocialLinks, dbEducationMedia, dbEducationPhotos] = await Promise.all([
+        fetchArticlesFromDb(),
+        fetchMilestonesFromDb(),
+        fetchCsrImpactsFromDb(),
+        fetchVoiceCutsFromDb(),
+        fetchFactChecksFromDb(),
+        fetchContentPipelineFromDb(),
+        fetchCoursesFromDb(),
+        fetchSocialLinksFromDb(),
+        fetchEducationMediaFromDb(),
+        fetchEducationPhotosFromDb()
+      ]);
+      if (cancelled) return;
+      // IMPORTANT: this checks `!== null`, not `.length > 0`. A successful
+      // fetch that legitimately returns zero rows (e.g. every FAQ entry was
+      // deleted, or nothing has been added yet) must still replace the
+      // built-in demo/mock content -- otherwise the app silently keeps
+      // showing fake hardcoded FAQ/milestone/etc. items forever with no way
+      // to tell they aren't real. Only an actual fetch FAILURE (null) should
+      // fall back to the mock data, since that's a "can't reach Supabase"
+      // case where showing the demo content is the better failure mode.
+      if (dbArticles !== null) setArticles(dbArticles);
+      if (dbMilestones !== null) setMilestones(dbMilestones);
+      if (dbCsrImpacts !== null) setCsrImpacts(dbCsrImpacts);
+      if (dbVoiceCuts !== null) setVoiceCuts(dbVoiceCuts);
+      if (dbFactChecks !== null) setFactChecks(dbFactChecks);
+      if (dbContentPipeline !== null) setContentPipeline(dbContentPipeline);
+      if (dbCourses !== null) setCourses(dbCourses);
+      if (dbSocialLinks !== null) setSocialLinks(dbSocialLinks);
+      if (dbEducationMedia !== null) setEducationMedia(dbEducationMedia);
+      if (dbEducationPhotos !== null) setEducationPhotos(dbEducationPhotos);
+      setContentLoading(false);
+      // `null` here (as opposed to an empty array) specifically means the
+      // fetch itself failed -- the article/content list silently fell back
+      // to the built-in demo content instead. That's a very confusing state
+      // ("where did my published article go?") with no visible error, so
+      // surface it as a real notification instead of only a console.error.
+      if (isSupabaseConfigured) {
+        if (dbArticles === null) pushDbErrorNotification('Loading live articles', 'Could not reach Supabase — showing built-in demo content instead of your real published articles.');
+        if (dbContentPipeline === null) pushDbErrorNotification('Loading content pipeline', 'Could not reach Supabase — showing built-in demo content instead of real drafts.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Real authentication: watch the Supabase session. On sign-in (including
+  // after a Google OAuth redirect back to the site), load that user's profile
+  // row and become them. On sign-out, fall back to the logged-out PUBLIC_USER.
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setAuthLoading(false);
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+
+    const loadSessionProfile = async (userId: string) => {
+      const profile = await fetchProfile(userId);
+      setCurrentUser(profile || PUBLIC_USER);
+      setAuthLoading(false);
+      // Refresh the team directory as this user: RLS returns every profile
+      // for admins, or just their own row for staff/guests, so the Dashboard's
+      // "Personnel Directory" always reflects real, current DB accounts.
+      const profiles = await fetchAllProfiles();
+      if (profiles) setUsers(profiles);
+      // Inquiries/registrations are staff/admin-only readable per RLS, so
+      // there's no point fetching them until someone with that access has
+      // signed in (a logged-out/guest fetch would just come back empty).
+      const [dbInquiries, dbRegistrations, dbNotifications, dbActivityLog] = await Promise.all([
+        fetchInquiriesFromDb(),
+        fetchRegistrationsFromDb(),
+        fetchNotificationsFromDb(),
+        fetchActivityLogFromDb()
+      ]);
+      if (dbInquiries !== null) setInquiries(dbInquiries);
+      if (dbRegistrations !== null) setRegistrations(dbRegistrations);
+      if (dbNotifications !== null) setNotifications(dbNotifications);
+      if (dbActivityLog !== null) setActivityLog(dbActivityLog);
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        loadSessionProfile(data.session.user.id);
+      } else {
+        setAuthLoading(false);
+      }
+    });
+
+    // BUG FIX: Supabase's client automatically re-checks/refreshes the
+    // session whenever the browser tab regains focus (switching back from
+    // another tab or app). That fires this callback with event
+    // 'TOKEN_REFRESHED' -- a normal, silent, same-user event. The previous
+    // version of this listener ignored `_event` entirely and treated ANY
+    // callback without an immediately-available session as a sign-out: it
+    // reset currentUser to the logged-out Public Visitor AND force-navigated
+    // activeTab back to 'public-hub'. In practice this meant simply
+    // switching tabs while mid-edit on an article (or anything else) could
+    // silently kick a signed-in staff member back to the public homepage,
+    // wiping out whatever they were in the middle of doing. Now we only
+    // treat an explicit 'SIGNED_OUT' event as a real sign-out, and skip the
+    // expensive full profile/content refetch for routine token refreshes
+    // where the user hasn't actually changed.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(PUBLIC_USER);
+        setActiveTab('public-hub');
+        setUsers([]);
+        return;
+      }
+      if (event === 'TOKEN_REFRESHED') {
+        // Same user, new token -- nothing to reload, and definitely nothing
+        // that should touch activeTab or any in-progress editing state.
+        return;
+      }
+      if (session?.user) {
+        loadSessionProfile(session.user.id);
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+  const [courses, setCourses] = useState<EducationCourse[]>(INITIAL_COURSES);
+  const [educationMedia, setEducationMedia] = useState<EducationMedia[]>([]);
+  const [educationPhotos, setEducationPhotos] = useState<EducationPhoto[]>([]);
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(INITIAL_SOCIAL_LINKS);
+  const [socialLinksModalOpen, setSocialLinksModalOpen] = useState(false);
+
+  const handleSaveSocialLink = (link: SocialLink) => {
+    setSocialLinks(prev => {
+      const exists = prev.some(l => l.platform === link.platform);
+      return exists ? prev.map(l => l.platform === link.platform ? link : l) : [...prev, link];
+    });
+    if (isSupabaseConfigured) {
+      upsertSocialLinkInDb(link).then(err => { if (err) pushDbErrorNotification(`Social link "${link.platform}"`, err); });
+    }
+  };
+
+  const handleDeleteSocialLink = (platform: string) => {
+    setSocialLinks(prev => prev.filter(l => l.platform !== platform));
+    if (isSupabaseConfigured) {
+      deleteSocialLinkFromDb(platform).then(err => { if (err) pushDbErrorNotification(`Deleting social link "${platform}"`, err); });
+    }
+  };
+  const [inquiries, setInquiries] = useState<PublicInquiry[]>(INITIAL_INQUIRIES);
+  // Synchronous lock for in-flight approvals -- a useState-based guard here
+  // isn't reliable against a genuine rapid double-click, because both click
+  // events can fire and read the same pre-re-render state before React
+  // commits the first update. A ref updates immediately/synchronously, so
+  // the second click sees the first click's lock even within the same tick.
+  // This is what actually stopped the "duplicate key value violates unique
+  // constraint announcements_pkey" error -- two clicks both tried to create
+  // the same deterministically-ID'd article, and the DB correctly rejected
+  // the second one, but only after presenting a scary false-alarm error.
+  const approvingDraftIds = React.useRef<Set<string>>(new Set());
+  const [registrations, setRegistrations] = useState<UserRegistration[]>(INITIAL_REGISTRATIONS);
+
+  // Article & Inquiry Handlers
+  const handleAddArticle = (newArticle: ArticleItem) => {
+    setArticles(prev => [newArticle, ...prev]);
+    playAlertChime();
+    logAction(newArticle.status === 'Published' ? 'published' : 'submitted', 'Article', newArticle.title);
+    // Optimistic UI update above; persist to Supabase in the background so it
+    // survives a page reload and is visible to every visitor, not just this tab.
+    if (isSupabaseConfigured) {
+      createArticleInDb(newArticle).then(errorMsg => {
+        if (errorMsg) pushDbErrorNotification(`Article "${newArticle.title}"`, errorMsg);
+      });
+    }
+  };
+
+  const handleAddInquiry = (newInquiry: PublicInquiry) => {
+    setInquiries(prev => [newInquiry, ...prev]);
+    if (isSupabaseConfigured) {
+      createInquiryInDb(newInquiry).then(err => { if (err) pushDbErrorNotification(`Inquiry from "${newInquiry.name}"`, err); });
+    }
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'New Official Inquiry Received (insight@aviyana.lk)',
+      message: `${newInquiry.name} (${newInquiry.category}): Ticket #${newInquiry.ticketNumber}`,
+      timestamp: 'Just now',
+      severity: 'high',
+      type: 'mention',
+      read: false,
+      actionRequired: 'Reply via insight@aviyana.lk'
+    };
+    pushNotification(notif);
+    playAlertChime();
+  };
+
+  const handleUpdateInquiryStatus = (inquiry: PublicInquiry, status: PublicInquiry['status']) => {
+    const updated: PublicInquiry = { ...inquiry, status };
+    setInquiries(prev => prev.map(i => (i.id === inquiry.id ? updated : i)));
+    logAction('status changed', 'Inquiry', `Ticket #${inquiry.ticketNumber}`, `${inquiry.status} → ${status}`);
+    if (isSupabaseConfigured) {
+      updateInquiryInDb(updated).then(err => { if (err) pushDbErrorNotification(`Inquiry status update ("${inquiry.ticketNumber}")`, err); });
+    }
+  };
+
+  const handleRegisterUser = (newReg: UserRegistration) => {
+    setRegistrations(prev => [newReg, ...prev]);
+    if (isSupabaseConfigured) {
+      createRegistrationInDb(newReg).then(err => { if (err) pushDbErrorNotification(`Registration from "${newReg.name}"`, err); });
+    }
+    sendNotificationEmail({
+      subject: `New VIP/Press Registration: ${newReg.name}`,
+      replyTo: newReg.email,
+      textBody:
+        `New VIP/Press Pass Registration — Aviyana Ceylon Resort\n\n` +
+        `Name: ${newReg.name}\nEmail: ${newReg.email}\nContact: ${newReg.contact || 'N/A'}\n` +
+        `Role: ${newReg.organizationRole}\nVIP Pass Code: ${newReg.vipPassCode}\n` +
+        `Interests: ${newReg.interests.join(', ') || 'None specified'}`
+    });
+    // Confirmation receipt to the registrant themselves.
+    sendNotificationEmail({
+      subject: `Your Aviyana Ceylon VIP/Press Pass — ${newReg.vipPassCode}`,
+      to: newReg.email,
+      textBody:
+        `Dear ${newReg.name},\n\n` +
+        `Thank you for registering with Aviyana Ceylon Resort. Your VIP/Press Pass code is:\n\n` +
+        `${newReg.vipPassCode}\n\n` +
+        `Please keep this code for reference. Our team will be in touch ahead of the Grand Opening.\n\n` +
+        `— Aviyana Ceylon Resort, insight.aviyana.lk`
+    }).then(errorMsg => {
+      if (errorMsg) pushEmailFailureNotification(`VIP/Press registrant "${newReg.name}"`, newReg.email, errorMsg);
+    });
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'New VIP / Press Pass Registered',
+      message: `${newReg.name} (${newReg.organizationRole}) issued VIP Pass ${newReg.vipPassCode}.`,
+      timestamp: 'Just now',
+      severity: 'medium',
+      type: 'approval',
+      read: false
+    };
+    pushNotification(notif);
+    playAlertChime();
+  };
+
+  const handleAddCourse = (newCourse: EducationCourse) => {
+    setCourses(prev => [newCourse, ...prev]);
+    playAlertChime();
+    if (isSupabaseConfigured) {
+      createCourseInDb(newCourse).then(err => { if (err) pushDbErrorNotification(`Course "${newCourse.title}"`, err); });
+    }
+  };
+
+  const handleEditCourse = (updatedCourse: EducationCourse) => {
+    setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+    if (isSupabaseConfigured) {
+      updateCourseInDb(updatedCourse).then(err => { if (err) pushDbErrorNotification(`Course "${updatedCourse.title}" edit`, err); });
+    }
+  };
+
+  const handleDeleteCourse = (courseId: string) => {
+    const deletedTitle = courses.find(c => c.id === courseId)?.title || courseId;
+    setCourses(prev => prev.filter(c => c.id !== courseId));
+    logAction('deleted', 'Course', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteCourseFromDb(courseId).then(err => { if (err) pushDbErrorNotification('Deleting course', err); });
+    }
+  };
+
+  const handleAddEducationMedia = (item: EducationMedia) => {
+    setEducationMedia(prev => [item, ...prev]);
+    logAction('added', item.type === 'Event' ? 'Education Event Clip' : 'Student Testimonial', item.title);
+    if (isSupabaseConfigured) {
+      createEducationMediaInDb(item).then(err => { if (err) pushDbErrorNotification(`Video "${item.title}"`, err); });
+    }
+  };
+
+  const handleDeleteEducationMedia = (id: string) => {
+    const deletedTitle = educationMedia.find(m => m.id === id)?.title || id;
+    setEducationMedia(prev => prev.filter(m => m.id !== id));
+    logAction('deleted', 'Education Video', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteEducationMediaFromDb(id).then(err => { if (err) pushDbErrorNotification('Deleting education video', err); });
+    }
+  };
+
+  const handleAddEducationPhoto = (item: EducationPhoto) => {
+    setEducationPhotos(prev => [item, ...prev]);
+    logAction('added', 'Education Photo', item.caption || item.id);
+    if (isSupabaseConfigured) {
+      createEducationPhotoInDb(item).then(err => { if (err) pushDbErrorNotification('Photo upload', err); });
+    }
+  };
+
+  const handleDeleteEducationPhoto = (id: string) => {
+    setEducationPhotos(prev => prev.filter(p => p.id !== id));
+    logAction('deleted', 'Education Photo', id);
+    if (isSupabaseConfigured) {
+      deleteEducationPhotoFromDb(id).then(err => { if (err) pushDbErrorNotification('Deleting photo', err); });
+    }
+  };
+
+  // Scholarship applications previously vanished into thin air: the form
+  // showed a "success" message but never saved or sent anything anywhere.
+  // This creates a staff notification (visible immediately in this session)
+  // AND emails insight@aviyana.lk directly, so an application survives even
+  // if nobody happens to be looking at the dashboard at that moment.
+  const handleApplyCourse = async (application: {
+    applicationCode: string;
+    courseTitle: string;
+    applicantName: string;
+    applicantEmail: string;
+    applicantContact: string;
+    applicantNote: string;
+  }): Promise<string | null> => {
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: `New Scholarship Application (${application.applicationCode})`,
+      message: `${application.applicantName} applied for "${application.courseTitle}" — ${application.applicantEmail}`,
+      timestamp: 'Just now',
+      severity: 'medium',
+      type: 'mention',
+      read: false,
+      actionRequired: 'Reply via insight@aviyana.lk'
+    };
+    pushNotification(notif);
+    playAlertChime();
+
+    // Confirmation receipt to the applicant, separate from the staff email below.
+    sendNotificationEmail({
+      subject: `Scholarship Application Received — ${application.applicationCode}`,
+      to: application.applicantEmail,
+      textBody:
+        `Dear ${application.applicantName},\n\n` +
+        `Thank you for applying to the Aviyana Ceylon Hospitality & Eco-Stewardship Academy.\n\n` +
+        `Application Code: ${application.applicationCode}\nCourse: ${application.courseTitle}\n\n` +
+        `Our Academy Admissions team will reach out to you at this email for interview scheduling.\n\n` +
+        `— Aviyana Ceylon Resort, insight.aviyana.lk`
+    }).then(errorMsg => {
+      if (errorMsg) pushEmailFailureNotification(`Scholarship applicant "${application.applicantName}"`, application.applicantEmail, errorMsg);
+    });
+
+    return sendNotificationEmail({
+      subject: `[${application.applicationCode}] Scholarship Application: ${application.courseTitle}`,
+      replyTo: application.applicantEmail,
+      textBody:
+        `New Scholarship Application — Aviyana Ceylon Hospitality & Eco-Stewardship Academy\n\n` +
+        `Application Code: ${application.applicationCode}\n` +
+        `Course: ${application.courseTitle}\n` +
+        `Applicant Name: ${application.applicantName}\n` +
+        `Applicant Email: ${application.applicantEmail}\n` +
+        `Applicant Contact: ${application.applicantContact || 'N/A'}\n\n` +
+        `Note:\n${application.applicantNote || '(none)'}`
+    });
+  };
+
+  // Public Hub admin CRUD — Milestones
+  const handleAddMilestone = (item: Milestone) => {
+    setMilestones(prev => [item, ...prev]);
+    playAlertChime();
+    logAction('added', 'Milestone', item.title);
+    if (isSupabaseConfigured) {
+      createMilestoneInDb(item).then(err => { if (err) pushDbErrorNotification(`Milestone "${item.title}"`, err); });
+    }
+  };
+  const handleEditMilestone = (item: Milestone) => {
+    setMilestones(prev => prev.map(m => m.id === item.id ? item : m));
+    playAlertChime();
+    logAction('edited', 'Milestone', item.title);
+    if (isSupabaseConfigured) {
+      updateMilestoneInDb(item).then(err => { if (err) pushDbErrorNotification(`Milestone "${item.title}" edit`, err); });
+    }
+  };
+  const handleDeleteMilestone = (id: string) => {
+    const deletedTitle = milestones.find(m => m.id === id)?.title || id;
+    setMilestones(prev => prev.filter(m => m.id !== id));
+    playAlertChime();
+    logAction('deleted', 'Milestone', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteMilestoneFromDb(id).then(err => { if (err) pushDbErrorNotification('Milestone deletion', err); });
+    }
+  };
+
+  // Public Hub admin CRUD — CSR / Fleet Impacts
+  const handleAddCsrImpact = (item: CSRImpact) => {
+    setCsrImpacts(prev => [item, ...prev]);
+    playAlertChime();
+    logAction('added', 'Guest Voice / Fleet Feature', item.title);
+    if (isSupabaseConfigured) {
+      createCsrImpactInDb(item).then(err => { if (err) pushDbErrorNotification(`Fleet feature "${item.title}"`, err); });
+    }
+  };
+  const handleEditCsrImpact = (item: CSRImpact) => {
+    setCsrImpacts(prev => prev.map(c => c.id === item.id ? item : c));
+    playAlertChime();
+    logAction('edited', 'Guest Voice / Fleet Feature', item.title);
+    if (isSupabaseConfigured) {
+      updateCsrImpactInDb(item).then(err => { if (err) pushDbErrorNotification(`Fleet feature "${item.title}" edit`, err); });
+    }
+  };
+  const handleDeleteCsrImpact = (id: string) => {
+    const deletedTitle = csrImpacts.find(c => c.id === id)?.title || id;
+    setCsrImpacts(prev => prev.filter(c => c.id !== id));
+    playAlertChime();
+    logAction('deleted', 'Guest Voice / Fleet Feature', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteCsrImpactFromDb(id).then(err => { if (err) pushDbErrorNotification('Fleet feature deletion', err); });
+    }
+  };
+
+  // Public Hub admin CRUD — Voice Cuts (press statements)
+  const handleAddVoiceCut = (item: VoiceCut) => {
+    setVoiceCuts(prev => [item, ...prev]);
+    playAlertChime();
+    logAction('added', 'Press Statement', item.title);
+    if (isSupabaseConfigured) {
+      createVoiceCutInDb(item).then(err => { if (err) pushDbErrorNotification(`Press statement "${item.title}"`, err); });
+    }
+  };
+  const handleEditVoiceCut = (item: VoiceCut) => {
+    setVoiceCuts(prev => prev.map(v => v.id === item.id ? item : v));
+    playAlertChime();
+    logAction('edited', 'Press Statement', item.title);
+    if (isSupabaseConfigured) {
+      updateVoiceCutInDb(item).then(err => { if (err) pushDbErrorNotification(`Press statement "${item.title}" edit`, err); });
+    }
+  };
+  const handleDeleteVoiceCut = (id: string) => {
+    const deletedTitle = voiceCuts.find(v => v.id === id)?.title || id;
+    setVoiceCuts(prev => prev.filter(v => v.id !== id));
+    playAlertChime();
+    logAction('deleted', 'Press Statement', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteVoiceCutFromDb(id).then(err => { if (err) pushDbErrorNotification('Press statement deletion', err); });
+    }
+  };
+
+  // Public Hub admin CRUD — Fact Checks / FAQs (Add already exists below for FaqManagerView; reused for the Public Hub too)
+  const handleEditFactCheck = (item: FactCheckItem) => {
+    setFactChecks(prev => prev.map(f => f.id === item.id ? item : f));
+    playAlertChime();
+    logAction('edited', 'Fact-Check / FAQ', item.rumor.slice(0, 60));
+    if (isSupabaseConfigured) {
+      updateFactCheckInDb(item).then(err => { if (err) pushDbErrorNotification(`Fact-check "${item.rumor.slice(0, 40)}..." edit`, err); });
+    }
+  };
+  const handleDeleteFactCheck = (id: string) => {
+    const deletedTitle = factChecks.find(f => f.id === id)?.rumor.slice(0, 60) || id;
+    setFactChecks(prev => prev.filter(f => f.id !== id));
+    playAlertChime();
+    logAction('deleted', 'Fact-Check / FAQ', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteFactCheckFromDb(id).then(err => { if (err) pushDbErrorNotification('Fact-check deletion', err); });
+    }
+  };
+
+  const handleDeleteArticle = (articleId: string) => {
+    const deletedTitle = articles.find(a => a.id === articleId)?.title || articleId;
+    setArticles(prev => prev.filter(a => a.id !== articleId));
+    logAction('deleted', 'Article', deletedTitle);
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Press Statement Deleted',
+      message: `Super Admin deleted article (ID: ${articleId}).`,
+      timestamp: 'Just now',
+      severity: 'high',
+      type: 'warning',
+      read: false
+    };
+    pushNotification(notif);
+    playAlertChime();
+    if (isSupabaseConfigured) {
+      deleteArticleFromDb(articleId).then(errorMsg => {
+        if (errorMsg) pushDbErrorNotification('Article deletion', errorMsg);
+      });
+    }
+  };
+
+  const handleEditArticle = (updatedArticle: ArticleItem) => {
+    setArticles(prev => prev.map(a => a.id === updatedArticle.id ? updatedArticle : a));
+    logAction('edited', 'Article', updatedArticle.title);
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Press Statement Edited',
+      message: `${currentUser.name || 'A team member'} updated "${updatedArticle.title}" on insight.aviyana.lk.`,
+      timestamp: 'Just now',
+      severity: 'low',
+      type: 'approval',
+      read: false
+    };
+    pushNotification(notif);
+    playAlertChime();
+    if (isSupabaseConfigured) {
+      updateArticleInDb(updatedArticle).then(errorMsg => {
+        if (errorMsg) pushDbErrorNotification(`Article "${updatedArticle.title}" edit`, errorMsg);
+      });
+    }
+  };
+
+
+  // Profile Edit Handler — updates the signed-in user's own profile locally
+  // after a successful Supabase save (see ProfileEditModal). Also keeps the
+  // demo "Team Directory" on the Dashboard in sync if this person happens to
+  // be one of the seed entries there.
+  const handleUpdateUser = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    if (currentUser.id === updatedUser.id) {
+      setCurrentUser(updatedUser);
+    }
+  };
+
+  // Document Modal Viewer State
+  const [documentModal, setDocumentModal] = useState<{ open: boolean; docName: string; title: string }>({
+    open: false,
+    docName: '',
+    title: ''
+  });
+
+  // Surfaces a Supabase write failure as a visible high-severity notification
+  // (bell icon badge) instead of only logging to the browser console, since a
+  // silent console.warn meant admins had no way to know a "published" post
+  // never actually made it to the database.
+  const pushDbErrorNotification = (action: string, errorMessage: string) => {
+    if (errorMessage === 'Supabase not configured') return; // expected in demo mode, not an error
+    const notif: NotificationItem = {
+      id: `notif-db-err-${Date.now()}`,
+      title: `⚠ Database Save Failed: ${action}`,
+      message: `Saved locally in this browser tab only — it will disappear on reload and other visitors won't see it. Supabase error: ${errorMessage}`,
+      timestamp: 'Just now',
+      severity: 'high',
+      type: 'warning',
+      read: false
+    };
+    pushNotification(notif);
+  };
+
+  // A confirmation email to a member of the public (visitor/applicant/
+  // registrant) failed to send -- most commonly because the Resend sending
+  // domain isn't verified yet, so the address they typed in can't actually
+  // be reached. Surfaces it as a staff notification so someone follows up
+  // manually with that person, instead of it failing silently.
+
+  // Records one entry in the staff activity log, attributed to whoever is
+  // currently signed in. Fire-and-forget -- never blocks or fails the
+  // action it's describing (see logActivity's own comment in activityLogApi.ts).
+  const logAction = (action: string, targetType: string, targetTitle: string, detail?: string) => {
+    if (!isStaffAuthenticated) return; // only staff/admin actions are worth auditing
+    logActivity({
+      actorId: currentUser.id,
+      actorName: currentUser.name,
+      actorRole: currentUser.role,
+      action,
+      targetType,
+      targetTitle,
+      detail
+    });
+    // Also reflect it immediately in local state so the Activity Log tab
+    // shows it without waiting on a refetch.
+    setActivityLog(prev => [{
+      id: `local-${Date.now()}`,
+      actorId: currentUser.id,
+      actorName: currentUser.name,
+      actorRole: currentUser.role,
+      action,
+      targetType,
+      targetTitle,
+      detail,
+      createdAt: 'Just now'
+    }, ...prev]);
+  };
+
+  const pushEmailFailureNotification = (recipientLabel: string, recipientEmail: string, errorMessage: string) => {
+    const notif: NotificationItem = {
+      id: `notif-email-err-${Date.now()}`,
+      title: `⚠ Confirmation Email Not Delivered: ${recipientLabel}`,
+      message: `${recipientEmail} likely never received their confirmation email. Please follow up manually. Error: ${errorMessage}`,
+      timestamp: 'Just now',
+      severity: 'medium',
+      type: 'warning',
+      read: false
+    };
+    pushNotification(notif);
+  };
+
+  // Sound chime for realtime notifications
+  const playAlertChime = () => {
+    if (!audioEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc2.type = 'triangle';
+      osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(ctx.currentTime);
+      osc2.start(ctx.currentTime + 0.08);
+      osc1.stop(ctx.currentTime + 0.25);
+      osc2.stop(ctx.currentTime + 0.35);
+    } catch {
+      // Audio Context fallback silent
+    }
+  };
+
+  // Simulate a live incoming alert
+  const handleSimulateAlert = () => {
+    const alertTypes = [
+      {
+        title: 'New Social Mention Monitored',
+        message: 'Facebook comment detected on Aviyana page: "Are the infinity pool environmental permits verified?"',
+        severity: 'high' as const,
+        type: 'mention' as const,
+        actionRequired: 'Generate Gemini Response'
+      },
+      {
+        title: 'New Story Draft Uploaded',
+        message: 'Dilshan uploaded 4K Drone Footage of Villa Construction. Awaiting SE Lead review.',
+        severity: 'medium' as const,
+        type: 'approval' as const,
+        actionRequired: 'Review & Publish'
+      },
+      {
+        title: 'New Google 5-Star Soft Opening Review',
+        message: 'Soft-launch guest posted: "Spectacular Ceylon luxury service and butler hospitality!"',
+        severity: 'low' as const,
+        type: 'review' as const,
+        actionRequired: 'Send Polite Thanks'
+      }
+    ];
+
+    const randomAlert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+    const newNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: randomAlert.title,
+      message: randomAlert.message,
+      timestamp: 'Just now',
+      severity: randomAlert.severity,
+      type: randomAlert.type,
+      read: false,
+      actionRequired: randomAlert.actionRequired
+    };
+
+    pushNotification(newNotif);
+    playAlertChime();
+  };
+
+  // Handlers for Notification Center
+  const handleMarkRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    if (isSupabaseConfigured) updateNotificationReadInDb(id, true);
+  };
+
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    if (isSupabaseConfigured) markAllNotificationsReadInDb();
+  };
+
+  const handleActionClick = (notif: NotificationItem) => {
+    if (notif.type === 'mention' || notif.actionRequired?.includes('Gemini')) {
+      setActiveTab('ai-assistant');
+    } else if (notif.type === 'approval') {
+      setActiveTab('pipeline');
+    } else if (notif.type === 'serp') {
+      setActiveTab('serp');
+    } else {
+      setActiveTab('dashboard');
+    }
+  };
+
+  // Handlers for Content Pipeline & Approvals
+  const handleApproveDraft = (id: string) => {
+    // Synchronous ref-based guard -- see the comment on approvingDraftIds
+    // above for why this replaces the earlier state-based check.
+    if (approvingDraftIds.current.has(id)) return;
+    approvingDraftIds.current.add(id);
+
+    const alreadyPublished = contentPipeline.find(item => item.id === id)?.status === 'Published';
+    if (alreadyPublished) {
+      approvingDraftIds.current.delete(id);
+      return;
+    }
+
+    let updatedItem: ContentPipelineItem | undefined;
+    setContentPipeline(prev => prev.map(item => {
+      if (item.id === id) {
+        updatedItem = { ...item, status: 'Published', publishTimeMinutes: 4 };
+        return updatedItem;
+      }
+      return item;
+    }));
+
+    if (isSupabaseConfigured && updatedItem) {
+      updateContentPipelineInDb(updatedItem).then(err => { if (err) pushDbErrorNotification(`Content draft "${updatedItem!.title}"`, err); });
+    }
+    if (updatedItem) logAction('approved & published', 'Content Draft', updatedItem.title);
+
+    // BUG FIX: approving a content pipeline draft used to only flip its own
+    // status to 'Published' -- it never actually created anything visible
+    // anywhere. The notification claimed it had been "published to
+    // insight.aviyana.lk", but nothing was ever added to the real articles
+    // list that Announcements/Public Hub actually read from, so approved
+    // content had no way to ever be found again. Approving now creates a
+    // real, published ArticleItem from the draft's content so it actually
+    // shows up on the site.
+    if (updatedItem) {
+      const capturedByName = updatedItem.capturedBy.split(' (')[0];
+      const matchedUser = users.find(u => u.name === capturedByName);
+      const newArticle: ArticleItem = {
+        id: `article-from-cp-${updatedItem.id}`,
+        title: updatedItem.title,
+        subtitle: `Captured via Content Pipeline — ${updatedItem.platform.join(', ')}`,
+        category: 'Press Release',
+        author: updatedItem.capturedBy,
+        authorRole: updatedItem.role,
+        authorAvatarUrl: matchedUser?.avatar,
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        content: updatedItem.notes,
+        coverImageUrl: updatedItem.mediaPreviewUrl,
+        mediaType: 'image',
+        status: 'Published',
+        viewsCount: 0,
+        tags: updatedItem.platform
+      };
+      setArticles(prev => [newArticle, ...prev]);
+      if (isSupabaseConfigured) {
+        createArticleInDb(newArticle).then(errorMsg => {
+          // A "duplicate key" rejection here specifically means an article
+          // with this exact ID was already successfully saved by an
+          // earlier attempt (most likely a near-simultaneous double-click,
+          // or two admins approving the same draft in different tabs at
+          // nearly the same moment) -- the real publish already succeeded,
+          // this second attempt was correctly and harmlessly rejected by
+          // the database. Treating that as a scary "HIGH PRIORITY, data
+          // will be lost" warning would be actively misleading, since
+          // nothing was actually lost.
+          if (errorMsg && /duplicate key/i.test(errorMsg)) {
+            console.warn('Duplicate article publish attempt (harmless -- the original publish already succeeded):', errorMsg);
+            return;
+          }
+          if (errorMsg) pushDbErrorNotification(`Publishing "${newArticle.title}" from Content Pipeline`, errorMsg);
+        });
+      }
+    }
+
+    // Create confirmation notification
+    const confirmNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Draft Published in <10 Minutes',
+      message: `SE IT Lead approved & published draft #${id} to insight.aviyana.lk. It now appears in Announcements.`,
+      timestamp: 'Just now',
+      severity: 'low',
+      type: 'approval',
+      read: false
+    };
+    pushNotification(confirmNotif);
+    playAlertChime();
+    // Release the lock -- intentionally not in a .finally() on the async DB
+    // calls above, since those are fire-and-forget; the lock's only job is
+    // to block a second click within the same synchronous event, and that
+    // window has passed by the time we get here.
+    approvingDraftIds.current.delete(id);
+  };
+
+  const handleAddContent = (newItem: ContentPipelineItem) => {
+    setContentPipeline(prev => [newItem, ...prev]);
+    playAlertChime();
+    if (isSupabaseConfigured) {
+      createContentPipelineInDb(newItem).then(err => { if (err) pushDbErrorNotification(`Content draft "${newItem.title}"`, err); });
+    }
+  };
+
+  const handleEditContent = (item: ContentPipelineItem) => {
+    setContentPipeline(prev => prev.map(c => c.id === item.id ? item : c));
+    logAction(item.status === 'Pending SE Approval' ? 'resubmitted' : 'edited', 'Content Draft', item.title);
+    if (isSupabaseConfigured) {
+      updateContentPipelineInDb(item).then(err => { if (err) pushDbErrorNotification(`Content draft "${item.title}" edit`, err); });
+    }
+  };
+
+  // Admin sends a pending draft back to whoever submitted it, with a note on
+  // what to fix, instead of approving it as-is or editing it themselves.
+  const handleRequestChanges = (item: ContentPipelineItem, note: string) => {
+    const updated: ContentPipelineItem = { ...item, status: 'Needs Revision', revisionNote: note };
+    setContentPipeline(prev => prev.map(c => c.id === item.id ? updated : c));
+    logAction('requested changes on', 'Content Draft', item.title, note);
+    if (isSupabaseConfigured) {
+      updateContentPipelineInDb(updated).then(err => { if (err) pushDbErrorNotification(`Requesting changes on "${item.title}"`, err); });
+    }
+    const notif: NotificationItem = {
+      id: `notif-revision-${Date.now()}`,
+      title: `Changes Requested: "${item.title}"`,
+      message: `${currentUser.name} sent this draft back to ${item.capturedBy} — "${note}"`,
+      timestamp: 'Just now',
+      severity: 'medium',
+      type: 'review',
+      read: false
+    };
+    pushNotification(notif);
+  };
+
+  const handleDeleteContent = (id: string) => {
+    const deletedTitle = contentPipeline.find(item => item.id === id)?.title || id;
+    setContentPipeline(prev => prev.filter(item => item.id !== id));
+    logAction('deleted', 'Content Draft', deletedTitle);
+    if (isSupabaseConfigured) {
+      deleteContentPipelineFromDb(id).then(err => { if (err) pushDbErrorNotification('Deleting content draft', err); });
+    }
+  };
+
+  const handleAddFactCheck = (newItem: FactCheckItem) => {
+    setFactChecks(prev => [newItem, ...prev]);
+    playAlertChime();
+    logAction('added', 'Fact-Check / FAQ', newItem.rumor.slice(0, 60));
+    if (isSupabaseConfigured) {
+      createFactCheckInDb(newItem).then(err => { if (err) pushDbErrorNotification(`Fact-check "${newItem.rumor.slice(0, 40)}..."`, err); });
+    }
+  };
+
+  const handleSubmitPublicInquiry = (query: string) => {
+    const inquiryNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'New Public Fact Inquiry Received',
+      message: `Visitor submitted query: "${query.slice(0, 80)}...". Review for insight.aviyana.lk update.`,
+      timestamp: 'Just now',
+      severity: 'high',
+      type: 'mention',
+      read: false,
+      actionRequired: 'Generate Gemini Response'
+    };
+    pushNotification(inquiryNotif);
+    playAlertChime();
+  };
+
+  const handleOpenDocument = (docName: string, title: string) => {
+    setDocumentModal({ open: true, docName, title });
+  };
+
+  // Signs out of the real Supabase session. The onAuthStateChange listener
+  // above picks this up and reverts to the logged-out Public Visitor view.
+  const handleLogout = () => {
+    signOutUser();
+    setCurrentUser(PUBLIC_USER);
+    setActiveTab('public-hub');
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Nothing renders until the initial content fetch resolves -- this is
+  // what actually stops the old flash of mock/demo data: previously the app
+  // rendered immediately using the built-in placeholder arrays as initial
+  // state, so every visitor briefly saw fake content before the real data
+  // swapped in a beat later. A brief, deliberate loading screen is a much
+  // better experience than a flash of content that then visibly changes.
+  if (contentLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
+        <p className="text-xs text-slate-500 font-mono tracking-wide">Loading Aviyana Insight…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen theme-${currentTheme} text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 transition-colors duration-300`}>
+      
+      {/* Top Luxury Navigation */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        currentUser={currentUser}
+        isStaffAuthenticated={isStaffAuthenticated}
+        isAnySignedIn={isAnySignedIn}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onOpenProfileModal={() => setProfileModalOpen(true)}
+        onLogout={handleLogout}
+        unreadCount={unreadCount}
+        onOpenNotifications={() => setNotificationsOpen(true)}
+        audioEnabled={audioEnabled}
+        setAudioEnabled={setAudioEnabled}
+        onOpenQuestionModal={() => setQuestionModalOpen(true)}
+        onOpenThemeModal={() => setThemeModalOpen(true)}
+        currentTheme={currentTheme}
+        onOpenContentEditor={() => openContentEditor(null)}
+      />
+
+      {/* Main Tab View Renderer */}
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 2xl:pb-6">
+        {activeTab === 'public-hub' && (
+          <PublicHubView
+            milestones={milestones}
+            articles={articles}
+            factChecks={factChecks}
+            csrImpacts={csrImpacts}
+            voiceCuts={voiceCuts}
+            socialLinks={socialLinks}
+            onManageSocialLinks={() => setSocialLinksModalOpen(true)}
+            isStaffAuthenticated={isStaffAuthenticated}
+            onOpenDocument={handleOpenDocument}
+            onSubmitPublicInquiry={handleSubmitPublicInquiry}
+            onOpenQuestionModal={() => setQuestionModalOpen(true)}
+            onOpenContentEditor={(kind, id) => openContentEditor(kind, id)}
+          />
+        )}
+
+        <Suspense fallback={<TabLoadingFallback />}>
+        {activeTab === 'investment' && (
+          <InvestmentView
+            articles={articles}
+            factChecks={factChecks}
+            onOpenQuestionModal={() => setQuestionModalOpen(true)}
+            isStaffAuthenticated={isStaffAuthenticated}
+            onRequestNewArticle={() => openArticleComposer(undefined, { category: 'Investor Update' })}
+            onRequestEditArticle={(articleId) => openArticleComposer(articleId)}
+            onDeleteArticle={handleDeleteArticle}
+          />
+        )}
+
+        {activeTab === 'careers' && (
+          <CareersView
+            socialLinks={socialLinks}
+            onSubmitInquiry={handleAddInquiry}
+            onConfirmationEmailFailed={(email, errorMsg) => pushEmailFailureNotification('Careers applicant', email, errorMsg)}
+          />
+        )}
+
+        {activeTab === 'announcements' && (
+          <AnnouncementsView
+            articles={articles}
+            currentUser={currentUser}
+            isStaffAuthenticated={isStaffAuthenticated}
+            isAdmin={isAdmin}
+            isDbConnected={isSupabaseConfigured}
+            onAddArticle={handleAddArticle}
+            onEditArticle={handleEditArticle}
+            onDeleteArticle={handleDeleteArticle}
+            onOpenQuestionModal={() => setQuestionModalOpen(true)}
+            onOpenAuthModal={() => setAuthModalOpen(true)}
+            onOpenContentEditor={(id) => openContentEditor('article', id)}
+          />
+        )}
+
+        {activeTab === 'education' && (
+          <EducationView
+            courses={courses}
+            currentUser={currentUser}
+            onOpenQuestionModal={() => setQuestionModalOpen(true)}
+            onAddCourse={handleAddCourse}
+            onEditCourse={handleEditCourse}
+            onDeleteCourse={handleDeleteCourse}
+            onApplyCourse={handleApplyCourse}
+            educationMedia={educationMedia}
+            onAddEducationMedia={handleAddEducationMedia}
+            onDeleteEducationMedia={handleDeleteEducationMedia}
+            educationPhotos={educationPhotos}
+            onAddEducationPhoto={handleAddEducationPhoto}
+            onDeleteEducationPhoto={handleDeleteEducationPhoto}
+            onOpenContentEditor={(kind, id) => openContentEditor(kind, id)}
+          />
+        )}
+
+        {activeTab === 'dashboard' && (
+          <DashboardView
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            users={users}
+            onNavigateTab={setActiveTab}
+            onOpenProfileModal={() => setProfileModalOpen(true)}
+            contentPipeline={contentPipeline}
+            articles={articles}
+            inquiries={inquiries}
+            notifications={notifications}
+            onApproveDraft={handleApproveDraft}
+          />
+        )}
+
+        {activeTab === 'ai-assistant' && (
+          <GeminiAiAssistant />
+        )}
+
+        {activeTab === 'pipeline' && (
+          <ContentPipelineView
+            currentUser={currentUser}
+            contentPipeline={contentPipeline}
+            onAddContent={handleAddContent}
+            onEditContent={handleEditContent}
+            onRequestChanges={handleRequestChanges}
+            onDeleteContent={handleDeleteContent}
+            onApproveDraft={handleApproveDraft}
+            onNavigateTab={setActiveTab}
+          />
+        )}
+
+        {activeTab === 'serp' && (
+          <SerpMonitoringView />
+        )}
+
+        {activeTab === 'faq' && (
+          <FaqManagerView
+            factChecks={factChecks}
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            onAddFactCheck={handleAddFactCheck}
+            onEditFactCheck={handleEditFactCheck}
+            onDeleteFactCheck={handleDeleteFactCheck}
+            onApproveFactCheck={handleEditFactCheck}
+            onOpenDocument={handleOpenDocument}
+          />
+        )}
+
+        {activeTab === 'inquiry-desk' && (
+          <InquiryDeskView
+            inquiries={inquiries}
+            registrations={registrations}
+            onUpdateInquiryStatus={handleUpdateInquiryStatus}
+          />
+        )}
+
+        {activeTab === 'activity-log' && (
+          <ActivityLogView entries={activityLog} />
+        )}
+
+        {activeTab === 'user-management' && isAdmin && (
+          <UserManagementView currentUser={currentUser} />
+        )}
+        </Suspense>
+      </main>
+
+      {/* Direct Question Submit Modal (insight@aviyana.lk) */}
+      <QuestionSubmitModal
+        isOpen={questionModalOpen}
+        onClose={() => setQuestionModalOpen(false)}
+        onSubmitInquiry={handleAddInquiry}
+        onConfirmationEmailFailed={(email, errorMsg) => pushEmailFailureNotification(`Question submitter`, email, errorMsg)}
+      />
+
+      {/* Real Sign In / Sign Up Modal (Supabase Auth) */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
+
+      {/* Profile Management Modal — edit own name/title/avatar */}
+      <ProfileEditModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        currentUser={currentUser}
+        onUpdateUser={handleUpdateUser}
+        articles={articles}
+        contentPipeline={contentPipeline}
+      />
+
+      {/* Realtime Notification Center Drawer */}
+      <NotificationCenter
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+        onMarkRead={handleMarkRead}
+        onMarkAllRead={handleMarkAllRead}
+        onSimulateAlert={handleSimulateAlert}
+        onActionClick={handleActionClick}
+        audioEnabled={audioEnabled}
+        setAudioEnabled={setAudioEnabled}
+      />
+
+      {/* Design Theme Selector Modal */}
+      <ThemeSelectorModal
+        isOpen={themeModalOpen}
+        onClose={() => setThemeModalOpen(false)}
+        currentTheme={currentTheme}
+        onSelectTheme={(theme) => setCurrentTheme(theme)}
+      />
+
+      {/* Social Links Manager Modal (staff/admin) */}
+      <SocialLinksManagerModal
+        isOpen={socialLinksModalOpen}
+        onClose={() => setSocialLinksModalOpen(false)}
+        socialLinks={socialLinks}
+        onSave={handleSaveSocialLink}
+        onDelete={handleDeleteSocialLink}
+      />
+
+      {/* Unified Content Editor — one entry point for Milestone / Guest Voice
+          (CSR) / Press Statement / Fact-Check. See Priority 0 in
+          NEXT_SESSION_PLAN.md; Article, Course, and Education media/photo
+          are follow-up work, not yet folded in. */}
+      <UnifiedContentEditor
+        request={contentEditorRequest}
+        onClose={closeContentEditor}
+        currentUser={currentUser}
+        isAdmin={isAdmin}
+        milestones={milestones}
+        csrImpacts={csrImpacts}
+        voiceCuts={voiceCuts}
+        factChecks={factChecks}
+        articles={articles}
+        courses={courses}
+        educationMedia={educationMedia}
+        onAddMilestone={handleAddMilestone}
+        onEditMilestone={handleEditMilestone}
+        onDeleteMilestone={handleDeleteMilestone}
+        onAddCsrImpact={handleAddCsrImpact}
+        onEditCsrImpact={handleEditCsrImpact}
+        onDeleteCsrImpact={handleDeleteCsrImpact}
+        onAddVoiceCut={handleAddVoiceCut}
+        onEditVoiceCut={handleEditVoiceCut}
+        onDeleteVoiceCut={handleDeleteVoiceCut}
+        onAddFactCheck={handleAddFactCheck}
+        onEditFactCheck={handleEditFactCheck}
+        onDeleteFactCheck={handleDeleteFactCheck}
+        onAddArticle={handleAddArticle}
+        onEditArticle={handleEditArticle}
+        onDeleteArticle={handleDeleteArticle}
+        onAddCourse={handleAddCourse}
+        onEditCourse={handleEditCourse}
+        onDeleteCourse={handleDeleteCourse}
+        onAddEducationMedia={handleAddEducationMedia}
+        onDeleteEducationMedia={handleDeleteEducationMedia}
+      />
+
+      {/* Verified Government Clearance Certificate Modal */}
+      <DocumentModal
+        isOpen={documentModal.open}
+        onClose={() => setDocumentModal({ ...documentModal, open: false })}
+        documentName={documentModal.docName}
+        title={documentModal.title}
+      />
+
+    </div>
+  );
+}

@@ -1,0 +1,319 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.6);
+}
+
+/* --- THEMES: Dark (default) and Light only --- */
+
+/* Dark -- the original theme, unchanged. */
+.theme-dark {
+  background-color: #030712;
+  color: #f8fafc;
+}
+
+/* Light -- rebuilt for real readability/eye comfort, not just an inverted
+   dark theme. Backgrounds step from white (cards) to a very soft warm grey
+   (page canvas) instead of pure white everywhere, which is easier on the
+   eyes for long reading sessions and avoids harsh edges between elements.
+   Text uses warm near-black greys (never pure #000) for softer contrast,
+   and every accent color (amber/emerald/red/blue) that was tuned bright for
+   a dark background is re-tuned darker here so it stays legible on a light
+   canvas (a light amber-300 on white is nearly invisible, for example).
+   Slightly heavier body weight compensates for thinner-looking anti-aliasing
+   on light backgrounds. */
+.theme-light {
+  background-color: #faf8f5 !important;
+  color: #1c1917 !important;
+  font-weight: 450;
+}
+
+.theme-light ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.04); }
+.theme-light ::-webkit-scrollbar-thumb { background: rgba(180, 83, 9, 0.25); }
+
+/* Backgrounds: solid + the most common opacity variants */
+.theme-light .bg-slate-950,
+.theme-light .bg-slate-950\/95,
+.theme-light .bg-slate-950\/90,
+.theme-light .bg-slate-950\/85 {
+  background-color: #faf8f5 !important;
+  color: #1c1917 !important;
+}
+.theme-light .bg-slate-950\/80,
+.theme-light .bg-slate-950\/70,
+.theme-light .bg-slate-950\/60,
+.theme-light .bg-slate-950\/40 {
+  background-color: rgba(28, 25, 23, 0.4) !important;
+  color: #f8fafc !important; /* text sitting directly on a dark overlay stays light */
+}
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-900\/90,
+.theme-light .bg-slate-900\/80,
+.theme-light .bg-slate-900\/60 {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  box-shadow: 0 2px 12px -2px rgba(120, 90, 30, 0.10) !important;
+}
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-800\/40 {
+  background-color: #f1ede6 !important;
+  color: #1c1917 !important;
+}
+.theme-light .bg-slate-700,
+.theme-light .bg-slate-700\/50 {
+  background-color: #e7e2d8 !important;
+  color: #1c1917 !important;
+}
+.theme-light .bg-slate-100 {
+  background-color: #f1ede6 !important;
+}
+
+/* Borders */
+.theme-light .border-slate-800,
+.theme-light .border-slate-800\/80,
+.theme-light .border-slate-800\/60,
+.theme-light .border-slate-900,
+.theme-light .border-slate-950,
+.theme-light .border-slate-700,
+.theme-light .border-slate-600 {
+  border-color: #e7e2d8 !important;
+}
+
+/* Text: dark-mode light greys/whites -> readable dark greys on a light canvas */
+.theme-light .text-white,
+.theme-light .text-slate-100,
+.theme-light .text-slate-200 {
+  color: #1c1917 !important;
+}
+.theme-light .text-slate-300,
+.theme-light .text-slate-400 {
+  color: #57534e !important;
+}
+.theme-light .text-slate-500,
+.theme-light .text-slate-600 {
+  color: #78716c !important;
+}
+
+/* Amber accents -- darkened for AA contrast on a white/cream background */
+.theme-light .text-amber-100,
+.theme-light .text-amber-200,
+.theme-light .text-amber-200\/80,
+.theme-light .text-amber-200\/90,
+.theme-light .text-amber-300,
+.theme-light .text-amber-300\/70,
+.theme-light .text-amber-300\/80,
+.theme-light .text-amber-300\/90,
+.theme-light .text-amber-400,
+.theme-light .text-amber-400\/90 {
+  color: #b45309 !important;
+}
+.theme-light .bg-amber-500\/10,
+.theme-light .bg-amber-500\/15,
+.theme-light .bg-amber-500\/20,
+.theme-light .bg-amber-500\/25,
+.theme-light .bg-amber-950,
+.theme-light .bg-amber-950\/30,
+.theme-light .bg-amber-950\/40,
+.theme-light .bg-amber-950\/50,
+.theme-light .bg-amber-950\/80 {
+  background-color: rgba(217, 119, 6, 0.12) !important;
+}
+
+/* Emerald (success) accents */
+.theme-light .text-emerald-200,
+.theme-light .text-emerald-300,
+.theme-light .text-emerald-400,
+.theme-light .text-emerald-50 {
+  color: #047857 !important;
+}
+.theme-light .bg-emerald-500\/10,
+.theme-light .bg-emerald-500\/15,
+.theme-light .bg-emerald-500\/20,
+.theme-light .bg-emerald-500\/30,
+.theme-light .bg-emerald-900,
+.theme-light .bg-emerald-900\/80,
+.theme-light .bg-emerald-950,
+.theme-light .bg-emerald-950\/40,
+.theme-light .bg-emerald-950\/50,
+.theme-light .bg-emerald-950\/60,
+.theme-light .bg-emerald-950\/80,
+.theme-light .bg-emerald-950\/90 {
+  background-color: rgba(16, 185, 129, 0.10) !important;
+}
+
+/* Red (error/danger) accents */
+.theme-light .text-red-200,
+.theme-light .text-red-300,
+.theme-light .text-red-400 {
+  color: #b91c1c !important;
+}
+.theme-light .bg-red-900,
+.theme-light .bg-red-900\/60,
+.theme-light .bg-red-950,
+.theme-light .bg-red-950\/40,
+.theme-light .bg-red-950\/50,
+.theme-light .bg-red-950\/60,
+.theme-light .bg-red-950\/80 {
+  background-color: rgba(220, 38, 38, 0.08) !important;
+}
+
+/* Blue accents (used sparingly, e.g. investment/sapphire-flavoured cards) */
+.theme-light .text-blue-300,
+.theme-light .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+.theme-light .bg-blue-500\/10,
+.theme-light .bg-blue-500\/20,
+.theme-light .bg-blue-950,
+.theme-light .bg-blue-950\/80 {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+}
+
+/* --- LIGHT THEME GAP FIXES ---
+   Found by diffing every text-*/bg-* class actually used across the app
+   against what the original light-theme rules above covered. The real bug
+   here was not just "low contrast" -- it was DARK TEXT ON STILL-DARK
+   BACKGROUNDS in specific spots: several translucent status-panel
+   backgrounds (bg-amber-950/40, bg-emerald-950/50, bg-red-950/60, etc.)
+   were never remapped to light equivalents, while the text sitting inside
+   those same panels WAS being forced dark by the broad text-color rules
+   above -- producing literally invisible or near-invisible text in exactly
+   the kind of colored callout/status boxes used throughout (Dashboard KPI
+   sub-labels, notification banners, form validation messages, etc). */
+
+/* Missing opacity-suffixed amber text variants (Tailwind generates each
+   opacity level as its own class, so the base .text-amber-300 rule above
+   never covered .text-amber-300/70 etc.) */
+.theme-light .text-amber-200\/80,
+.theme-light .text-amber-200\/90,
+.theme-light .text-amber-300\/70,
+.theme-light .text-amber-300\/80,
+.theme-light .text-amber-300\/90,
+.theme-light .text-amber-400\/90,
+.theme-light .text-amber-500,
+.theme-light .text-amber-500\/60,
+.theme-light .text-amber-600 {
+  color: #b45309 !important;
+}
+
+/* Purple accent text was missing entirely (used for the Dashboard's "Active
+   Staff" KPI and a few other spots) -- was rendering as a light lavender
+   completely invisible on a white background. */
+.theme-light .text-purple-300,
+.theme-light .text-purple-400 {
+  color: #7e22ce !important;
+}
+
+/* text-slate-700 (a "slightly muted but still readable on dark" tone in the
+   dark theme) previously fell through un-remapped and rendered too light on
+   a white background. */
+.theme-light .text-slate-700 {
+  color: #78716c !important;
+}
+
+/* The dark, low-opacity "status panel" backgrounds (warning banners,
+   pending/error/success callouts) -- these need a light tint of the SAME
+   hue, not the generic slate treatment, so a red warning box still reads as
+   a red warning box in light mode instead of just vanishing into the page. */
+.theme-light .bg-amber-950\/30,
+.theme-light .bg-amber-950\/40,
+.theme-light .bg-amber-950\/50,
+.theme-light .bg-amber-950\/80 {
+  background-color: rgba(217, 119, 6, 0.10) !important;
+}
+.theme-light .bg-emerald-950\/40,
+.theme-light .bg-emerald-950\/50,
+.theme-light .bg-emerald-950\/80,
+.theme-light .bg-emerald-950\/90 {
+  background-color: rgba(16, 185, 129, 0.10) !important;
+}
+.theme-light .bg-red-900\/60,
+.theme-light .bg-red-950\/40,
+.theme-light .bg-red-950\/50,
+.theme-light .bg-red-950\/60,
+.theme-light .bg-red-950\/80 {
+  background-color: rgba(220, 38, 38, 0.08) !important;
+}
+.theme-light .bg-purple-500\/10 {
+  background-color: rgba(147, 51, 234, 0.08) !important;
+}
+
+/* Remaining slate panel/card background variants used for cards, dropdowns,
+   and nested panels that were not covered by the original narrower list. */
+.theme-light .bg-slate-600,
+.theme-light .bg-slate-700\/50,
+.theme-light .bg-slate-800\/40,
+.theme-light .bg-slate-900\/60,
+.theme-light .bg-slate-900\/80,
+.theme-light .bg-slate-900\/90 {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+}
+.theme-light .bg-slate-950\/40,
+.theme-light .bg-slate-950\/60,
+.theme-light .bg-slate-950\/70 {
+  background-color: rgba(28, 25, 23, 0.4) !important;
+  color: #f8fafc !important;
+}
+.theme-light .bg-slate-950\/85,
+.theme-light .bg-slate-950\/90,
+.theme-light .bg-slate-950\/95 {
+  background-color: #faf8f5 !important;
+  color: #1c1917 !important;
+}
+
+/* --- PRINT: show only the open article/post, nothing else (navbar,
+   buttons, other page content, modal backdrop) so "Print" produces a clean
+   document instead of a screenshot of the whole app chrome. --- */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-article,
+  #printable-article * {
+    visibility: visible;
+  }
+  #printable-article {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  #printable-article button,
+  #printable-article [role="button"] {
+    display: none !important;
+  }
+}

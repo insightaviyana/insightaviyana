@@ -1,0 +1,262 @@
+import React, { useState } from 'react';
+import {
+  Briefcase,
+  Linkedin,
+  Upload,
+  Send,
+  Loader2,
+  CheckCircle2,
+  User,
+  Mail,
+  Phone,
+  FileText,
+  Award,
+  Users,
+  TrendingUp
+} from 'lucide-react';
+import { PublicInquiry, SocialLink } from '../types';
+import { sendNotificationEmail } from '../lib/emailApi';
+import { uploadCv, fileToBase64 } from '../lib/cvUpload';
+
+interface CareersViewProps {
+  socialLinks: SocialLink[];
+  onSubmitInquiry: (inquiry: PublicInquiry) => void;
+  onConfirmationEmailFailed?: (email: string, errorMessage: string) => void;
+}
+
+export const CareersView: React.FC<CareersViewProps> = ({
+  socialLinks,
+  onSubmitInquiry,
+  onConfirmationEmailFailed
+}) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [contact, setContact] = useState('');
+  const [position, setPosition] = useState('');
+  const [message, setMessage] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submittedTicket, setSubmittedTicket] = useState<string | null>(null);
+
+  const linkedinLink = socialLinks.find(l => l.iconName === 'linkedin');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !position.trim()) return;
+    setSubmitting(true);
+
+    const ticketNumber = `AV-CAREERS-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    let cvUrl: string | undefined;
+    let cvFileName: string | undefined;
+    let cvBase64: string | null = null;
+    if (cvFile) {
+      const uploadResult = await uploadCv(cvFile, name.trim());
+      if (uploadResult) {
+        cvUrl = uploadResult.signedUrl;
+        cvFileName = uploadResult.fileName;
+      }
+      try {
+        cvBase64 = await fileToBase64(cvFile);
+      } catch (err) {
+        console.error('Could not read CV file for email attachment:', err);
+      }
+    }
+
+    const newInquiry: PublicInquiry = {
+      id: `inq-${Date.now()}`,
+      name: name.trim(),
+      email: email.trim(),
+      contact: contact.trim() || 'N/A',
+      category: 'Employment & Academy',
+      question: `Position of interest: ${position.trim()}\n\n${message.trim()}`,
+      submittedAt: new Date().toLocaleString(),
+      status: 'Delivered to insight@aviyana.lk',
+      ticketNumber,
+      cvUrl,
+      cvFileName,
+      linkedinUrl: linkedinUrl.trim() || undefined
+    };
+
+    onSubmitInquiry(newInquiry);
+    setSubmittedTicket(ticketNumber);
+    setSubmitting(false);
+
+    sendNotificationEmail({
+      subject: `[${ticketNumber}] Careers: ${position.trim()}`,
+      replyTo: newInquiry.email,
+      textBody:
+        `New Job Opportunity Inquiry — Aviyana Ceylon Resort Careers\n\n` +
+        `Ticket Number: ${ticketNumber}\n` +
+        `Name: ${newInquiry.name}\n` +
+        `Email: ${newInquiry.email}\n` +
+        `Contact: ${newInquiry.contact}\n` +
+        `Position of Interest: ${position.trim()}\n` +
+        (linkedinUrl.trim() ? `LinkedIn: ${linkedinUrl.trim()}\n` : '') +
+        (cvFileName ? `CV Attached: ${cvFileName}\n` : '(No CV attached)\n') +
+        `\nMessage:\n${message.trim() || '(none)'}`,
+      attachments: cvBase64 && cvFile ? [{ filename: cvFile.name, content: cvBase64 }] : undefined
+    });
+
+    sendNotificationEmail({
+      subject: `We've received your application — Ticket #${ticketNumber}`,
+      to: newInquiry.email,
+      textBody:
+        `Dear ${newInquiry.name},\n\n` +
+        `Thank you for your interest in joining Aviyana Ceylon Resort. Your application for "${position.trim()}" has been logged as Ticket #${ticketNumber}.\n\n` +
+        `Our HR & Hotel School Partnership Directorate will review your application and reach out if there's a fit.\n\n` +
+        `— Aviyana Ceylon Resort, insight.aviyana.lk`
+    }).then(errorMsg => {
+      if (errorMsg) onConfirmationEmailFailed?.(newInquiry.email, errorMsg);
+    });
+  };
+
+  const resetForm = () => {
+    setName(''); setEmail(''); setContact(''); setPosition(''); setMessage('');
+    setLinkedinUrl(''); setCvFile(null); setSubmittedTicket(null);
+  };
+
+  return (
+    <div className="space-y-8 pb-16">
+      {/* Header Banner */}
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 border border-amber-500/30 p-8 shadow-2xl">
+        <div className="max-w-3xl space-y-3">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">
+            <Briefcase size={14} className="text-amber-400" />
+            <span>Careers at Aviyana Ceylon Resort</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight leading-tight">
+            Build Your Career With Sri Lanka's Premier <br className="hidden sm:inline" />
+            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-100 bg-clip-text text-transparent">
+              7-Star Resort Team
+            </span>
+          </h1>
+          <p className="text-sm text-slate-300 max-w-2xl">
+            From hospitality and guest services to sustainability and engineering — we're building a team of local talent ahead of our August 2027 Grand Opening.
+          </p>
+          {linkedinLink && (
+            <a
+              href={linkedinLink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-[#0A66C2] hover:bg-[#0958a8] text-white font-bold rounded-xl text-xs transition-all shadow-lg"
+            >
+              <Linkedin size={16} />
+              <span>Follow & Connect on LinkedIn</span>
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Highlight cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 bg-slate-900/90 border border-amber-500/30 rounded-2xl space-y-2">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <Award size={22} />
+          </div>
+          <h3 className="font-serif font-bold text-base text-white">Paid Training & Certification</h3>
+          <p className="text-xs text-slate-300">Full-stipend Hospitality Academy programs for local hires, no experience required for entry roles.</p>
+        </div>
+        <div className="p-5 bg-slate-900/90 border border-amber-500/30 rounded-2xl space-y-2">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Users size={22} />
+          </div>
+          <h3 className="font-serif font-bold text-base text-white">85%+ Local Employment</h3>
+          <p className="text-xs text-slate-300">The vast majority of our workforce is local Sri Lankan talent, including Hotel School graduates.</p>
+        </div>
+        <div className="p-5 bg-slate-900/90 border border-amber-500/30 rounded-2xl space-y-2">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <TrendingUp size={22} />
+          </div>
+          <h3 className="font-serif font-bold text-base text-white">Real Growth Paths</h3>
+          <p className="text-xs text-slate-300">From trainee to department lead — genuine career progression as we scale toward Grand Opening.</p>
+        </div>
+      </div>
+
+      {/* Application Form */}
+      <div className="bg-slate-900/60 border border-amber-500/20 rounded-3xl p-6 sm:p-8">
+        <h2 className="text-xl font-serif font-bold text-white mb-1">Submit a Job Opportunity Inquiry</h2>
+        <p className="text-xs text-slate-400 mb-6">Tell us what role interests you, attach your CV, and our HR team will get back to you.</p>
+
+        {submittedTicket ? (
+          <div className="bg-slate-950 border border-emerald-500/40 rounded-2xl p-6 text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
+              <CheckCircle2 size={32} />
+            </div>
+            <h4 className="text-xl font-serif font-bold text-white">Application Received — Ticket #{submittedTicket}</h4>
+            <p className="text-xs text-slate-400">We've emailed a confirmation to you. Our HR & Hotel School Partnership Directorate will be in touch.</p>
+            <button onClick={resetForm} className="text-xs text-amber-300 hover:underline">Submit another application</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-amber-400">*</span></label>
+                <div className="relative">
+                  <User size={15} className="absolute left-3 top-2.5 text-slate-500" />
+                  <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Nimali Perera" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Number</label>
+                <div className="relative">
+                  <Phone size={15} className="absolute left-3 top-2.5 text-slate-500" />
+                  <input value={contact} onChange={e => setContact(e.target.value)} placeholder="e.g. +94 77 123 4567" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-amber-400">*</span></label>
+                <div className="relative">
+                  <Mail size={15} className="absolute left-3 top-2.5 text-slate-500" />
+                  <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your.email@domain.com" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Position of Interest <span className="text-amber-400">*</span></label>
+                <input required value={position} onChange={e => setPosition(e.target.value)} placeholder="e.g. Guest Services, F&B, Engineering" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Message (optional)</label>
+              <textarea rows={3} value={message} onChange={e => setMessage(e.target.value)} placeholder="Tell us about your experience or why you're interested..." className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 resize-none" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Upload CV (PDF or Word)</label>
+                <label className="flex items-center gap-2 px-3 py-2.5 bg-slate-950 border border-dashed border-slate-700 hover:border-amber-500/50 rounded-xl text-xs text-slate-400 cursor-pointer transition-colors">
+                  <Upload size={14} className="text-amber-400 shrink-0" />
+                  <span className="truncate">{cvFile ? cvFile.name : 'Choose a file...'}</span>
+                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={e => setCvFile(e.target.files?.[0] || null)} />
+                </label>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">LinkedIn Profile URL</label>
+                <div className="relative">
+                  <Linkedin size={15} className="absolute left-3 top-2.5 text-slate-500" />
+                  <input type="url" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/your-profile" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg flex items-center space-x-2"
+              >
+                {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                <span>{submitting ? 'Uploading...' : 'Submit Application'}</span>
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
