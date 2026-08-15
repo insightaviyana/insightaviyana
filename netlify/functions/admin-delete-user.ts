@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -26,7 +27,18 @@ export const handler: Handler = async (event) => {
       return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing auth token.' }) };
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      // Netlify Functions' runtime doesn't reliably expose the native
+      // WebSocket global @supabase/supabase-js's Realtime client needs --
+      // even though this function never uses realtime, just calling
+      // createClient() initializes that client internally and throws
+      // "Node.js detected but native WebSocket not found" the moment it's
+      // invoked. Providing the `ws` package here works around it
+      // regardless of what Node version Netlify actually runs functions on
+      // (NODE_VERSION in netlify.toml affects the build, not reliably the
+      // Functions runtime).
+      realtime: { transport: WebSocket as any }
+    });
 
     const { data: callerData, error: callerError } = await adminClient.auth.getUser(callerToken);
     if (callerError || !callerData.user) {

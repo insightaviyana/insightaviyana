@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 // This function must only ever run server-side (Netlify Function), never in
 // the browser bundle -- it's the one place SUPABASE_SERVICE_ROLE_KEY is used.
@@ -26,7 +27,10 @@ export const handler: Handler = async (event) => {
       return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing auth token.' }) };
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      // Same fix as admin-delete-user.ts -- see the comment there.
+      realtime: { transport: WebSocket as any }
+    });
 
     // Verify the caller is who their token says they are, then check they're an admin.
     const { data: callerData, error: callerError } = await adminClient.auth.getUser(callerToken);
