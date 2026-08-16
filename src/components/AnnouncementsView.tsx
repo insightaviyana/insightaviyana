@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { ArticleItem, User as UserType } from '../types';
 import { SmartVideoPlayer, isYouTubeUrl } from './SmartVideoPlayer';
+import { ArticleContentRenderer } from './ArticleContentRenderer';
 import { uploadContentImage } from '../lib/contentImageUpload';
 import { determineNewArticleStatus, determineEditedArticleStatus } from '../lib/statusTransitions';
 
@@ -400,6 +401,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
           <Search size={15} className="absolute left-3 top-2.5 text-slate-500" />
           <input
             type="text"
+            aria-label="Search articles and press statements"
             placeholder="Search articles & press statements..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -538,7 +540,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                 <img loading="lazy"
                   src={selectedArticle.coverImageUrl}
                   alt={selectedArticle.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
@@ -636,35 +638,10 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
               </div>
 
               {/* Article Content Body with Embedded Photos & Videos */}
-              <div className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed space-y-4">
-                {selectedArticle.content.split('\n\n').map((paragraph, idx) => {
-                  if (paragraph.trim().startsWith('[IMAGE:') && paragraph.includes(']')) {
-                    const imgUrl = paragraph.substring(paragraph.indexOf('[IMAGE:') + 7, paragraph.indexOf(']')).trim();
-                    const caption = paragraph.substring(paragraph.indexOf(']') + 1).trim();
-                    return (
-                      <div key={idx} className="my-4 rounded-2xl overflow-hidden bg-slate-950 border border-amber-500/30 p-2 shadow-lg">
-                        <img loading="lazy" src={imgUrl} alt="Article attachment" className="w-full max-h-96 object-cover rounded-xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        {caption && <p className="text-xs text-amber-300/80 italic text-center mt-2 font-serif">{caption}</p>}
-                      </div>
-                    );
-                  }
-                  if (paragraph.trim().startsWith('[VIDEO:') && paragraph.includes(']')) {
-                    const videoUrl = paragraph.substring(paragraph.indexOf('[VIDEO:') + 7, paragraph.indexOf(']')).trim();
-                    const caption = paragraph.substring(paragraph.indexOf(']') + 1).trim();
-                    return (
-                      <div key={idx} className="my-4 rounded-2xl overflow-hidden bg-slate-950 border border-amber-500/30 p-2 shadow-lg aspect-video">
-                        <SmartVideoPlayer url={videoUrl} className="w-full h-full rounded-xl bg-black" />
-                        {caption && <p className="text-xs text-amber-300/80 italic text-center mt-2 font-serif">{caption}</p>}
-                      </div>
-                    );
-                  }
-                  return (
-                    <p key={idx} className="whitespace-pre-line leading-relaxed">
-                      {paragraph}
-                    </p>
-                  );
-                })}
-              </div>
+              <ArticleContentRenderer
+                content={selectedArticle.content}
+                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed space-y-4"
+              />
 
               {/* Video Attachment Banner */}
               {selectedArticle.videoUrl && (
@@ -750,8 +727,9 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
               {/* Category & Title */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Article Category</label>
+                  <label htmlFor="ann-category" className="block text-xs font-semibold text-slate-300 mb-1">Article Category</label>
                   <select
+                    id="ann-category"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value as any)}
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
@@ -768,8 +746,9 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Headline / Article Title *</label>
+                  <label htmlFor="ann-title" className="block text-xs font-semibold text-slate-300 mb-1">Headline / Article Title *</label>
                   <input
+                    id="ann-title"
                     type="text"
                     required
                     placeholder="e.g. Aviyana Ceylon Resort Unveils Presidential Villa Suites"
@@ -782,8 +761,9 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
 
               {/* Subtitle */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Subtitle / Summary</label>
+                <label htmlFor="ann-subtitle" className="block text-xs font-semibold text-slate-300 mb-1">Subtitle / Summary</label>
                 <input
+                  id="ann-subtitle"
                   type="text"
                   placeholder="e.g. Official declaration regarding environmental clearance and Grand Opening launch..."
                   value={newSubtitle}
@@ -803,11 +783,12 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                   
                   {/* Local Image Upload */}
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">
+                    <label htmlFor="ann-cover-image" className="block text-[11px] text-slate-400 mb-1">
                       Cover Image (URL or Local File)
                     </label>
                     <div className="flex items-center space-x-2">
                       <input
+                        id="ann-cover-image"
                         type="text"
                         placeholder="https://..."
                         value={newCoverImage}
@@ -835,11 +816,12 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
 
                   {/* Video: YouTube link (recommended) or local preview */}
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">
+                    <label htmlFor="ann-video-url" className="block text-[11px] text-slate-400 mb-1">
                       Video — YouTube Link (Recommended)
                     </label>
                     <div className="flex items-center space-x-2">
                       <input
+                        id="ann-video-url"
                         type="text"
                         placeholder="https://youtu.be/xxxxxxxxxxx or https://www.youtube.com/watch?v=xxxxxxxxxxx"
                         value={newVideoUrl}
@@ -857,7 +839,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                         />
                       </label>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                    <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                       Paste a YouTube link — <strong className="text-amber-300/80">Unlisted</strong> works great here: anyone with the article link can watch it, but it won't show up in YouTube search or on your channel. This keeps large video files off this app's own storage/database entirely.
                     </p>
                     {newVideoUrl && isYouTubeUrl(newVideoUrl) && (
@@ -879,6 +861,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                   <div>
                     <input
                       type="text"
+                      aria-label="Video caption"
                       placeholder="Video Caption (e.g. 4K Drone Footage of Villa Suite construction)"
                       value={newVideoCaption}
                       onChange={(e) => setNewVideoCaption(e.target.value)}
@@ -891,7 +874,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
               {/* Rich Content Editor Textarea with Inline Media Insertion */}
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">Article Body / Press Text *</label>
+                  <label htmlFor="ann-body" className="block text-xs font-semibold text-slate-300">Article Body / Press Text *</label>
                   <div className="flex items-center space-x-2 text-[11px]">
                     <label className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 rounded-lg cursor-pointer font-bold transition-all flex items-center space-x-1 border border-amber-500/30">
                       <ImageIcon size={13} />
@@ -938,11 +921,12 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                   </div>
                 </div>
 
-                <p className="text-[10px] text-slate-500 -mt-1">
+                <p className="text-[10px] text-slate-400 -mt-1">
                   Photos uploaded here are saved permanently. Videos are preview-only in this tab -- use a YouTube link for a video that survives a page reload.
                 </p>
 
                 <textarea
+                  id="ann-body"
                   required
                   rows={9}
                   placeholder="Write full article text here. Use buttons above to attach local photos or videos directly inside the article body text..."
@@ -954,8 +938,9 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
 
               {/* Tags */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Tags (Comma Separated)</label>
+                <label htmlFor="ann-tags" className="block text-xs font-semibold text-slate-300 mb-1">Tags (Comma Separated)</label>
                 <input
+                  id="ann-tags"
                   type="text"
                   placeholder="Grand Opening, CEA Clearance, Hospitality Academy"
                   value={newTags}

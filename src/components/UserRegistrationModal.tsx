@@ -93,6 +93,7 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
 
           <button
             onClick={handleReset}
+            aria-label="Close"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X size={18} />
@@ -141,12 +142,13 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
               
               {/* Name Field */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label htmlFor="urm-name" className="block text-xs font-semibold text-slate-300 mb-1">
                   Full Name <span className="text-amber-400">*</span>
                 </label>
                 <div className="relative">
                   <UserIcon size={15} className="absolute left-3 top-2.5 text-slate-500" />
                   <input
+                    id="urm-name"
                     type="text"
                     required
                     placeholder="Enter your full name"
@@ -160,12 +162,13 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
               {/* Email & Contact Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label htmlFor="urm-email" className="block text-xs font-semibold text-slate-300 mb-1">
                     Email Address <span className="text-amber-400">*</span>
                   </label>
                   <div className="relative">
                     <Mail size={15} className="absolute left-3 top-2.5 text-slate-500" />
                     <input
+                      id="urm-email"
                       type="email"
                       required
                       placeholder="email@domain.com"
@@ -177,12 +180,13 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label htmlFor="urm-contact" className="block text-xs font-semibold text-slate-300 mb-1">
                     Contact Phone / WhatsApp <span className="text-amber-400">*</span>
                   </label>
                   <div className="relative">
                     <Phone size={15} className="absolute left-3 top-2.5 text-slate-500" />
                     <input
+                      id="urm-contact"
                       type="tel"
                       required
                       placeholder="+94 77 123 4567"
@@ -196,12 +200,13 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
 
               {/* Role Selection */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label htmlFor="urm-role" className="block text-xs font-semibold text-slate-300 mb-1">
                   Organization / Role Category
                 </label>
                 <div className="relative">
                   <Building size={15} className="absolute left-3 top-2.5 text-slate-500" />
                   <select
+                    id="urm-role"
                     value={organizationRole}
                     onChange={(e) => setOrganizationRole(e.target.value as any)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"

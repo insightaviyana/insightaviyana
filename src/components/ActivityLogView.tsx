@@ -92,6 +92,7 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = ({ entries }) => 
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
+            aria-label="Search activity log"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by person, action, or item..."
@@ -104,6 +105,7 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = ({ entries }) => 
           <select
             value={dayFilter}
             onChange={e => setDayFilter(e.target.value)}
+            aria-label="Filter by day"
             className="w-full pl-9 pr-8 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white appearance-none cursor-pointer"
           >
             <option value="">All Days</option>
@@ -114,7 +116,7 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = ({ entries }) => 
           {dayFilter && (
             <button
               onClick={() => setDayFilter('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
               title="Clear day filter"
             >
               <X size={14} />
@@ -124,7 +126,7 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = ({ entries }) => 
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-xs text-slate-500 text-center py-16">
+        <p className="text-xs text-slate-400 text-center py-16">
           {entries.length === 0 ? 'No activity recorded yet — actions will start appearing here as staff use the portal.' : 'No activity matches this filter.'}
         </p>
       )}
@@ -145,13 +147,13 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = ({ entries }) => 
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-slate-200 leading-relaxed">
                     <span className="font-bold text-white">{entry.actorName}</span>
-                    <span className="text-slate-500"> ({entry.actorRole.replace(/_/g, ' ')}) </span>
+                    <span className="text-slate-400"> ({entry.actorRole.replace(/_/g, ' ')}) </span>
                     <span className="text-amber-300">{entry.action}</span>
                     <span className="text-slate-400"> {entry.targetType.toLowerCase()}: </span>
                     <span className="font-semibold text-slate-100">"{entry.targetTitle}"</span>
-                    {entry.detail && <span className="text-slate-500"> — {entry.detail}</span>}
+                    {entry.detail && <span className="text-slate-400"> — {entry.detail}</span>}
                   </p>
-                  <p className="text-[10px] text-slate-500 font-mono mt-1">{entry.createdAt}</p>
+                  <p className="text-[10px] text-slate-400 font-mono mt-1">{entry.createdAt}</p>
                 </div>
               </div>
             ))}

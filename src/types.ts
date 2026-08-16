@@ -215,6 +215,18 @@ export interface EducationPhoto {
   imageUrl: string;
   caption: string;
   date: string;
+  /** Groups photos uploaded in the same "Add Photos" batch into one
+   * browsable album. Optional so existing pre-album rows keep working --
+   * a photo with no albumId is treated as its own single-photo album (see
+   * groupPhotosIntoAlbums() in EducationView.tsx). */
+  albumId?: string;
+  albumName?: string;
+  /** True if this photo is the album's chosen cover (shown on the album
+   * card). At most one photo per album should have this set -- see
+   * setAlbumCover() in EducationView.tsx, which clears it on siblings
+   * before setting it on the new choice. Falls back to the first photo in
+   * the album if none is explicitly marked. */
+  isCover?: boolean;
 }
 
 export interface PublicInquiry {

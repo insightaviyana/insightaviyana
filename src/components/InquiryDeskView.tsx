@@ -105,13 +105,13 @@ export const InquiryDeskView: React.FC<InquiryDeskViewProps> = ({
       <div className="flex items-center gap-2 border-b border-slate-800 overflow-x-auto whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0">
         <button
           onClick={() => setSubTab('inquiries')}
-          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all ${subTab === 'inquiries' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all ${subTab === 'inquiries' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-400 hover:text-slate-300'}`}
         >
           Inquiries & Questions ({inquiries.length})
         </button>
         <button
           onClick={() => setSubTab('registrations')}
-          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all ${subTab === 'registrations' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all ${subTab === 'registrations' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-400 hover:text-slate-300'}`}
         >
           VIP / Press Registrations ({registrations.length})
         </button>
@@ -121,6 +121,7 @@ export const InquiryDeskView: React.FC<InquiryDeskViewProps> = ({
       <div className="relative">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
         <input
+          aria-label="Search inquiries and registrations"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder={subTab === 'inquiries' ? 'Search by name, email, ticket number, or question...' : 'Search by name, email, or VIP pass code...'}
@@ -152,7 +153,7 @@ export const InquiryDeskView: React.FC<InquiryDeskViewProps> = ({
 
           <div className="space-y-3">
             {filteredInquiries.length === 0 && (
-              <p className="text-xs text-slate-500 text-center py-10">No inquiries match this filter.</p>
+              <p className="text-xs text-slate-400 text-center py-10">No inquiries match this filter.</p>
             )}
             {filteredInquiries.map(inq => (
               <div key={inq.id} className="bg-slate-900 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all space-y-3">
@@ -161,7 +162,7 @@ export const InquiryDeskView: React.FC<InquiryDeskViewProps> = ({
                     <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
                       {inq.category}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                    <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                       <Ticket size={11} />
                       {inq.ticketNumber}
                     </span>
@@ -169,6 +170,7 @@ export const InquiryDeskView: React.FC<InquiryDeskViewProps> = ({
                   <select
                     value={inq.status}
                     onChange={e => onUpdateInquiryStatus(inq, e.target.value as PublicInquiry['status'])}
+                    aria-label={`Update status for ${inq.ticketNumber}`}
                     className={`text-[11px] font-bold px-2 py-1 rounded-lg border font-mono cursor-pointer ${STATUS_STYLES[inq.status]}`}
                   >
                     <option value="Delivered to insight@aviyana.lk">Delivered — Unreviewed</option>
@@ -219,7 +221,7 @@ export const InquiryDeskView: React.FC<InquiryDeskViewProps> = ({
       {subTab === 'registrations' && (
         <div className="space-y-3">
           {filteredRegistrations.length === 0 && (
-            <p className="text-xs text-slate-500 text-center py-10">No registrations match this search.</p>
+            <p className="text-xs text-slate-400 text-center py-10">No registrations match this search.</p>
           )}
           {filteredRegistrations.map(reg => (
             <div key={reg.id} className="bg-slate-900 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all space-y-3">

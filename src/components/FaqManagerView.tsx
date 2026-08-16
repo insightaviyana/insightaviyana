@@ -22,6 +22,14 @@ interface FaqManagerViewProps {
   onDeleteFactCheck?: (id: string) => void;
   onApproveFactCheck?: (item: FactCheckItem) => void;
   onOpenDocument: (docName: string, title: string) => void;
+  /** Opens the shared Unified Content Editor pre-set to the 'faq' kind --
+   * preferred over this file's own inline add/edit form below, which is a
+   * second, independently-maintained implementation of the same form that
+   * had drifted out of sync (missing the Status and Document Proof fields,
+   * a single-line input instead of a textarea for the rumor). Kept as a
+   * fallback only for the (currently theoretical) case this component is
+   * rendered somewhere that doesn't wire this prop up. */
+  onOpenContentEditor?: (id?: string) => void;
 }
 
 type CategoryType = FactCheckItem['category'];
@@ -40,7 +48,8 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
   onEditFactCheck,
   onDeleteFactCheck,
   onApproveFactCheck,
-  onOpenDocument
+  onOpenDocument,
+  onOpenContentEditor
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,12 +67,14 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
   );
 
   const openAdd = () => {
+    if (onOpenContentEditor) { onOpenContentEditor(); return; }
     setForm(emptyForm);
     setEditingId(null);
     setShowAddModal(true);
   };
 
   const openEdit = (item: FactCheckItem) => {
+    if (onOpenContentEditor) { onOpenContentEditor(item.id); return; }
     setForm({
       rumor: item.rumor, fact: item.fact, officialSource: item.officialSource,
       category: item.category, status: item.status, documentProof: item.documentProof || ''
@@ -146,13 +157,13 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
       <div className="flex items-center gap-2 border-b border-slate-800 overflow-x-auto whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0">
         <button
           onClick={() => setTab('published')}
-          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all ${tab === 'published' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all ${tab === 'published' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-400 hover:text-slate-300'}`}
         >
           Published ({published.length})
         </button>
         <button
           onClick={() => setTab('pending')}
-          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 ${tab === 'pending' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`shrink-0 px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 ${tab === 'pending' ? 'bg-slate-900 text-amber-300 border-t border-x border-amber-500/30' : 'text-slate-400 hover:text-slate-300'}`}
         >
           <Clock size={12} /> Pending Approval ({pending.length})
         </button>
@@ -163,6 +174,7 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
         <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
         <input
           type="text"
+          aria-label="Search rumors or facts"
           placeholder="Search rumors or facts..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -177,8 +189,9 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Unverified Rumor / Claim:</label>
+              <label htmlFor="faq-rumor" className="text-xs font-semibold text-slate-300 block mb-1">Unverified Rumor / Claim:</label>
               <input
+                id="faq-rumor"
                 type="text"
                 required
                 placeholder="e.g. Construction delayed due to permit issues."
@@ -189,8 +202,9 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Category:</label>
+              <label htmlFor="faq-category" className="text-xs font-semibold text-slate-300 block mb-1">Category:</label>
               <select
+                id="faq-category"
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value as CategoryType })}
                 className="w-full bg-slate-950 border border-amber-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
@@ -201,8 +215,9 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1">Verified Official Fact:</label>
+            <label htmlFor="faq-fact" className="text-xs font-semibold text-slate-300 block mb-1">Verified Official Fact:</label>
             <textarea
+              id="faq-fact"
               rows={3}
               required
               placeholder="e.g. Full clearance obtained in Jan 2025 under Certificate #CEA/7S..."
@@ -213,8 +228,9 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1">Official Document Source / Reference:</label>
+            <label htmlFor="faq-source" className="text-xs font-semibold text-slate-300 block mb-1">Official Document Source / Reference:</label>
             <input
+              id="faq-source"
               type="text"
               placeholder="e.g. Central Environmental Authority Approval Document #CEA/7S"
               value={form.officialSource}
@@ -244,7 +260,7 @@ export const FaqManagerView: React.FC<FaqManagerViewProps> = ({
       {/* Fact-Check List */}
       <div className="space-y-4">
         {filtered.length === 0 && (
-          <p className="text-xs text-slate-500 text-center py-10">
+          <p className="text-xs text-slate-400 text-center py-10">
             {tab === 'pending' ? 'Nothing pending approval.' : 'No published fact-checks match this search.'}
           </p>
         )}

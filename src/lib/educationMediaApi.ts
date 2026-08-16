@@ -74,13 +74,16 @@ interface EducationPhotoRow {
   image_url: string;
   caption: string;
   date: string;
+  album_id: string | null;
+  album_name: string | null;
+  is_cover: boolean | null;
 }
 
 function photoToRow(p: EducationPhoto): EducationPhotoRow {
-  return { id: p.id, image_url: p.imageUrl, caption: p.caption, date: p.date };
+  return { id: p.id, image_url: p.imageUrl, caption: p.caption, date: p.date, album_id: p.albumId || null, album_name: p.albumName || null, is_cover: p.isCover ?? null };
 }
 function rowToPhoto(r: EducationPhotoRow): EducationPhoto {
-  return { id: r.id, imageUrl: r.image_url, caption: r.caption, date: r.date };
+  return { id: r.id, imageUrl: r.image_url, caption: r.caption, date: r.date, albumId: r.album_id || undefined, albumName: r.album_name || undefined, isCover: r.is_cover ?? undefined };
 }
 
 export async function fetchEducationPhotosFromDb(): Promise<EducationPhoto[] | null> {
@@ -99,6 +102,24 @@ export async function createEducationPhotoInDb(item: EducationPhoto): Promise<st
   const { data, error } = await supabase.from('education_photos').insert(photoToRow(item)).select('id');
   if (error) return error.message;
   if (!data || data.length === 0) return 'Save did not go through — no row was created. It will look added now but WILL disappear on refresh.';
+  return null;
+}
+
+/** Partial update for a single photo -- used for album rename (album_name)
+ * and the cover-picker (is_cover), so the whole photo doesn't need to be
+ * re-sent for a small change. */
+export async function updateEducationPhotoInDb(id: string, updates: Partial<Pick<EducationPhoto, 'albumId' | 'albumName' | 'isCover' | 'caption'>>): Promise<string | null> {
+  if (!isSupabaseConfigured) return 'Supabase not configured';
+  const supabase = getSupabase();
+  if (!supabase) return 'Supabase not configured';
+  const row: Record<string, unknown> = {};
+  if (updates.albumId !== undefined) row.album_id = updates.albumId || null;
+  if (updates.albumName !== undefined) row.album_name = updates.albumName || null;
+  if (updates.isCover !== undefined) row.is_cover = updates.isCover;
+  if (updates.caption !== undefined) row.caption = updates.caption;
+  const { data, error } = await supabase.from('education_photos').update(row).eq('id', id).select('id');
+  if (error) return error.message;
+  if (!data || data.length === 0) return 'Update did not save — no matching row found or no permission. It will look changed now but WILL revert on refresh.';
   return null;
 }
 

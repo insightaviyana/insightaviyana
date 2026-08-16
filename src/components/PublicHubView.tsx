@@ -29,8 +29,10 @@ import {
   Megaphone
 } from 'lucide-react';
 import { Milestone, FactCheckItem, CSRImpact, VoiceCut, SocialLink, ArticleItem } from '../types';
+import { TranslationDict } from '../lib/i18n';
 import { SocialLinksBar } from './SocialLinksBar';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
+import { ArticleContentRenderer } from './ArticleContentRenderer';
 import { Pencil, Plus } from 'lucide-react';
 import aviyanaLogoMark from '../assets/aviyana-logo-mark.png';
 
@@ -69,6 +71,9 @@ interface PublicHubViewProps {
    * specific item's id when editing). Replaces the page's own local
    * add/edit modal -- see UnifiedContentEditor.tsx. */
   onOpenContentEditor?: (kind: 'milestone' | 'csr' | 'voicecut', id?: string) => void;
+  /** i18n (src/lib/i18n.tsx) -- optional, falls back to built-in English
+   * copy if not passed. */
+  t?: TranslationDict;
 }
 
 export const PublicHubView: React.FC<PublicHubViewProps> = ({
@@ -83,7 +88,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
   onOpenDocument,
   onSubmitPublicInquiry,
   onOpenQuestionModal,
-  onOpenContentEditor
+  onOpenContentEditor,
+  t
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [faqSearch, setFaqSearch] = useState('');
@@ -199,7 +205,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     <div id="public-hub-root" className="min-h-screen bg-slate-950 text-slate-100 pb-16">
       
       {/* Compact Hero Section */}
-      <section className="relative pt-8 pb-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 border-b border-amber-500/30 overflow-hidden shadow-2xl">
+      <section className="relative pt-8 pb-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 border-b border-amber-500/30 overflow-hidden shadow-2xl animate-fade-in-up">
         {/* Ambient Gold Radial Glow Background */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -215,7 +221,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
           <div className="flex items-center justify-center gap-3">
             <img loading="lazy"
               src={aviyanaLogoMark}
-              alt=""
+              alt="Aviyana Ceylon Resort logo"
               className="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.4)] shrink-0"
             />
             <h1 className="text-2xl sm:text-4xl font-serif font-extrabold tracking-tight text-white leading-none">
@@ -225,12 +231,16 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
             </h1>
           </div>
           <p className="mt-2 text-sm sm:text-base font-serif text-amber-200/90 font-medium tracking-wide">
-            Online Reputation Management & Verified Source of Truth
+            {t ? t.hero.tagline : 'Online Reputation Management & Verified Source of Truth'}
           </p>
 
           <p className="mt-3 max-w-2xl mx-auto text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-            Authentic news, luxury fleet updates, and milestone progress towards our{' '}
-            <strong className="text-amber-300 font-semibold">August 2027 Strategic Grand Opening</strong>.
+            {t ? t.hero.subtitle : (
+              <>
+                Authentic news, luxury fleet updates, and milestone progress towards our{' '}
+                <strong className="text-amber-300 font-semibold">August 2027 Strategic Grand Opening</strong>.
+              </>
+            )}
           </p>
 
           {/* Core Principle — compact single-line strip instead of a large card */}
@@ -251,9 +261,20 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-amber-500/20 hover:scale-[1.02] flex items-center justify-center space-x-2 group cursor-pointer"
               >
                 <Mail size={15} className="text-slate-950 group-hover:rotate-12 transition-transform" />
-                <span className="font-semibold tracking-wide">Submit Direct Question</span>
+                <span className="font-semibold tracking-wide">{t ? t.hero.askQuestion : 'Submit Direct Question'}</span>
               </button>
             )}
+            {/* Direct hero-level link to the Fact-Check Portal (see the
+                promoted "Signature Feature" section below) -- a visitor who
+                never scrolls past the hero still sees the site's strongest
+                differentiator immediately, not five sections down. */}
+            <a
+              href="#fact-checks"
+              className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 border border-amber-500/40 hover:border-amber-400/70 text-amber-300 hover:text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 group cursor-pointer"
+            >
+              <HelpCircle size={15} className="text-amber-400" />
+              <span className="font-semibold tracking-wide">{t ? t.hero.verifyClaim : 'Verify a Claim — Fact-Check Portal'}</span>
+            </a>
           </div>
 
         </div>
@@ -307,7 +328,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
           {/* Timeline / News Cards Grid - now includes published Announcements, not just milestones */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredFeed.length === 0 && (
-              <div className="col-span-full text-center py-12 text-slate-500 text-sm">
+              <div className="col-span-full text-center py-12 text-slate-400 text-sm">
                 No news items in this category yet.
               </div>
             )}
@@ -353,7 +374,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                     </div>
 
                     <div className="p-5 pt-0">
-                      <div className="text-[10px] text-slate-500 mt-2 font-mono flex items-center justify-between gap-2">
+                      <div className="text-[10px] text-slate-400 mt-2 font-mono flex items-center justify-between gap-2">
                         <span>Published by:</span>
                         <span className="flex items-center gap-1.5 text-slate-300 font-medium min-w-0">
                           <img src={art.authorAvatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(art.author)}`} alt="" className="w-4 h-4 rounded-full object-cover shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -428,7 +449,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                         <ExternalLink size={12} />
                       </button>
                     )}
-                    <div className="text-[10px] text-slate-500 mt-2 font-mono flex items-center justify-between">
+                    <div className="text-[10px] text-slate-400 mt-2 font-mono flex items-center justify-between">
                       <span>Verified by:</span>
                       <span className="text-slate-300 font-medium">{ms.verifiedBy}</span>
                     </div>
@@ -439,7 +460,115 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
           </div>
         </section>
 
-        {/* Section 2: Guest Voices & Opening Wishes (real guest video clips) */}
+        {/* Section 2: Fact-Check Portal (Myth vs. Reality) — promoted here,
+            right after the news timeline, per ENGINEERING_ASSESSMENT.md:
+            "the fact-check/myth-vs-reality section is a genuine
+            differentiator most corporate newsrooms don't attempt at all...
+            should be actively promoted, not hidden as one section among
+            several." Was previously Section 4 (5th of 5, right before the
+            footer) -- moved up and given its own bordered/highlighted
+            treatment (amber ring + badge) so it reads as the site's
+            signature feature rather than a standard content block. */}
+        <section id="fact-checks" className="scroll-mt-20 relative rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-900/60 p-6 sm:p-8 shadow-2xl shadow-amber-500/5 animate-fade-in-up">
+          <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-bold uppercase tracking-wider shadow-lg animate-pulse">
+            {t ? t.factCheck.signatureBadge : 'Signature Feature'}
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 pb-4 border-b border-amber-500/20">
+            <div>
+              <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
+                <HelpCircle size={14} />
+                <span>{t ? t.factCheck.badge : 'Fact-Check Portal'}</span>
+              </div>
+              <h2 className="text-2xl font-serif font-bold text-white mt-1">
+                {t ? t.factCheck.title : 'Fact-Check & Myth vs. Reality FAQ'}
+              </h2>
+              <p className="text-xs text-slate-400 max-w-lg">
+                {t ? t.factCheck.description : "Every rumor addressed with a document-backed official answer — this is the standing, publicly-verifiable rebuttal archive most resort newsrooms don't offer."}
+              </p>
+              {isStaffAuthenticated && (
+                <p className="mt-2 text-[11px] text-slate-400 italic">
+                  Add, edit, or approve fact-checks from the <span className="text-amber-300 font-semibold not-italic">Fact-Check & FAQ</span> staff tab.
+                </p>
+              )}
+            </div>
+
+            {/* FAQ Search bar */}
+            <div className="mt-4 sm:mt-0 relative w-full sm:w-72">
+              <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
+              <input
+                type="text"
+                aria-label="Search rumors or topics"
+                placeholder={t ? t.factCheck.searchPlaceholder : 'Search rumors or topics...'}
+                value={faqSearch}
+                onChange={(e) => setFaqSearch(e.target.value)}
+                className="w-full bg-slate-900 border border-amber-500/30 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {filteredFaqs.map((faq) => (
+              <div 
+                key={faq.id} 
+                onClick={() => setSelectedArticleModal({
+                  title: faq.rumor,
+                  category: `Fact-Check: ${faq.category}`,
+                  date: faq.verifiedDate,
+                  status: faq.status,
+                  description: faq.fact,
+                  documentName: faq.documentProof,
+                  verifiedBy: faq.officialSource,
+                  fullBody: `Claim / Allegation:\n"${faq.rumor}"\n\nOfficial Verified Fact:\n${faq.fact}\n\nOfficial Document Source: ${faq.officialSource}`
+                })}
+                className="bg-slate-900/90 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-500/30">
+                    Unverified Claim
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-amber-300">Verified: {faq.verifiedDate} • Click to read details &rarr;</span>
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-semibold text-red-200 line-through opacity-80">
+                  {faq.rumor}
+                </h4>
+
+                <div className="mt-4 p-4 rounded-xl bg-slate-950 border border-emerald-500/30">
+                  <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+                    <CheckCircle2 size={16} />
+                    <span>Verified Official Fact</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-100 leading-relaxed">
+                    {faq.fact}
+                  </p>
+
+                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 gap-2">
+                    <div>
+                      <strong className="text-slate-300">Official Source:</strong> {faq.officialSource}
+                    </div>
+
+                    {faq.documentProof && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDocument(faq.documentProof!, faq.rumor);
+                        }}
+                        className="px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto"
+                      >
+                        <FileText size={12} />
+                        <span>View Document Evidence</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Section 3: Guest Voices & Opening Wishes (real guest video clips) */}
         <section id="csr-community" className="bg-slate-900/60 border border-amber-500/20 rounded-3xl p-6 sm:p-8">
           <div className="max-w-3xl mb-8">
             <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
@@ -492,7 +621,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                   </button>
                 )}
                 <div className="relative h-40 rounded-xl overflow-hidden mb-4">
-                  <img loading="lazy" src={csr.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <img loading="lazy" src={csr.imageUrl} alt={csr.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
                   {csr.videoUrl && (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -512,7 +641,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <h4 className="font-serif font-bold text-white text-base group-hover:text-amber-300 transition-colors">{csr.title}</h4>
                 <div className="text-xs text-amber-400 font-semibold mb-2">{csr.metricLabel}</div>
                 <p className="text-xs text-slate-300 leading-relaxed">{csr.description}</p>
-                <div className="text-[10px] text-slate-500 mt-3 font-mono">
+                <div className="text-[10px] text-slate-400 mt-3 font-mono">
                   📍 {csr.location}
                 </div>
               </div>
@@ -520,7 +649,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
           </div>
         </section>
 
-        {/* Section 3: Press Events, Unveilings & Executive Media */}
+        {/* Section 4: Press Events, Unveilings & Executive Media */}
         <section id="voice-cuts">
           <div className="mb-6">
             <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
@@ -579,7 +708,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                   <>
                     <img loading="lazy" 
                       src={activeVoiceCut?.videoThumbnail} 
-                      alt="" 
+                      alt={activeVoiceCut?.title || 'Press statement thumbnail'} 
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
                       onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                     />
@@ -664,7 +793,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                   }`}
                 >
                   <div className="relative w-20 h-14 rounded-lg overflow-hidden shrink-0">
-                    <img loading="lazy" src={vc.videoThumbnail} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <img loading="lazy" src={vc.videoThumbnail} alt={vc.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                       <Play size={14} className="text-white fill-white" />
                     </div>
@@ -672,7 +801,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                   <div className="min-w-0 flex-1">
                     <h5 className="text-xs font-bold text-white truncate">{vc.title}</h5>
                     <div className="text-[11px] text-amber-300">{vc.speakerName}</div>
-                    <div className="text-[10px] text-slate-500">{vc.speakerRole}</div>
+                    <div className="text-[10px] text-slate-400">{vc.speakerRole}</div>
                   </div>
                   {isStaffAuthenticated && onOpenContentEditor && (
                     <button
@@ -687,102 +816,6 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* Section 4: Fact-Check & FAQ Section (Myth vs. Reality) */}
-        <section id="fact-checks" className="scroll-mt-20">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 pb-4 border-b border-slate-800">
-            <div>
-              <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
-                <HelpCircle size={14} />
-                <span>Fact-Check Portal</span>
-              </div>
-              <h2 className="text-2xl font-serif font-bold text-white mt-1">
-                Fact-Check & Myth vs. Reality FAQ
-              </h2>
-              <p className="text-xs text-slate-400">
-                Direct, polite, and verified answers addressing recurring rumors with document evidence.
-              </p>
-              {isStaffAuthenticated && (
-                <p className="mt-2 text-[11px] text-slate-500 italic">
-                  Add, edit, or approve fact-checks from the <span className="text-amber-300 font-semibold not-italic">Fact-Check & FAQ</span> staff tab.
-                </p>
-              )}
-            </div>
-
-            {/* FAQ Search bar */}
-            <div className="mt-4 sm:mt-0 relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
-              <input
-                type="text"
-                placeholder="Search rumors or topics..."
-                value={faqSearch}
-                onChange={(e) => setFaqSearch(e.target.value)}
-                className="w-full bg-slate-900 border border-amber-500/30 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {filteredFaqs.map((faq) => (
-              <div 
-                key={faq.id} 
-                onClick={() => setSelectedArticleModal({
-                  title: faq.rumor,
-                  category: `Fact-Check: ${faq.category}`,
-                  date: faq.verifiedDate,
-                  status: faq.status,
-                  description: faq.fact,
-                  documentName: faq.documentProof,
-                  verifiedBy: faq.officialSource,
-                  fullBody: `Claim / Allegation:\n"${faq.rumor}"\n\nOfficial Verified Fact:\n${faq.fact}\n\nOfficial Document Source: ${faq.officialSource}`
-                })}
-                className="bg-slate-900/90 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-500/30">
-                    Unverified Claim
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-amber-300">Verified: {faq.verifiedDate} • Click to read details &rarr;</span>
-                  </div>
-                </div>
-
-                <h4 className="text-sm font-semibold text-red-200 line-through opacity-80">
-                  {faq.rumor}
-                </h4>
-
-                <div className="mt-4 p-4 rounded-xl bg-slate-950 border border-emerald-500/30">
-                  <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
-                    <CheckCircle2 size={16} />
-                    <span>Verified Official Fact</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-100 leading-relaxed">
-                    {faq.fact}
-                  </p>
-
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 gap-2">
-                    <div>
-                      <strong className="text-slate-300">Official Source:</strong> {faq.officialSource}
-                    </div>
-
-                    {faq.documentProof && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDocument(faq.documentProof!, faq.rumor);
-                        }}
-                        className="px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto"
-                      >
-                        <FileText size={12} />
-                        <span>View Document Evidence</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </section>
 
@@ -868,6 +901,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               <form onSubmit={handleInquirySubmit} className="mt-5 space-y-3">
                 <textarea
                   rows={3}
+                  aria-label="Your question or fact-verification request"
                   placeholder="Type your question or statement request here..."
                   value={inquiryText}
                   onChange={(e) => setInquiryText(e.target.value)}
@@ -951,7 +985,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <img loading="lazy"
                   src={selectedArticleModal.imageUrl}
                   alt={selectedArticleModal.title}
-                  className="w-full h-full object-cover"
+                  className="w-full max-h-96 object-contain mx-auto"
                   onError={(e) => { (e.target as HTMLImageElement).closest('div')!.style.display = 'none'; }}
                 />
               </div>
@@ -976,13 +1010,10 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
             )}
 
             {/* Full Body Paragraphs */}
-            <div className="space-y-4 text-sm text-slate-200 leading-relaxed font-sans">
-              {(selectedArticleModal.fullBody || selectedArticleModal.description).split('\n\n').map((para, idx) => (
-                <p key={idx} className="whitespace-pre-line">
-                  {para}
-                </p>
-              ))}
-            </div>
+            <ArticleContentRenderer
+              content={selectedArticleModal.fullBody || selectedArticleModal.description}
+              className="space-y-4 text-sm text-slate-200 leading-relaxed font-sans"
+            />
 
             {/* Verification Footer & Actions */}
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">

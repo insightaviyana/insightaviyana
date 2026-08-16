@@ -17,6 +17,9 @@ export interface QuickFieldConfig {
   mediaInsertFolder?: string;
   /** For type 'textarea' or 'richtext': helper caption shown just above the field. */
   helperText?: string;
+  /** For type 'textarea' only: overrides the default 3-row height. Useful
+   * for fields like a rumor/claim that often run a full sentence or two. */
+  rows?: number;
 }
 
 interface QuickCrudModalProps {
@@ -86,7 +89,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
           <h3 className="font-serif font-bold text-lg text-white">{title}</h3>
           <div className="flex items-center">
             {headerExtra}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+            <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
               <X size={18} />
             </button>
           </div>
@@ -95,7 +98,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-3 flex-1">
           {fields.map(field => (
             <div key={field.key}>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">{field.label}</label>
+              <label htmlFor={field.key} className="block text-[11px] font-semibold text-slate-300 mb-1">{field.label}</label>
               {field.type === 'richtext' ? (
                 <div className="space-y-1.5">
                   {field.mediaInsertFolder && (
@@ -144,9 +147,10 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                     </div>
                   )}
                   {field.helperText && (
-                    <p className="text-[10px] text-slate-500">{field.helperText}</p>
+                    <p className="text-[10px] text-slate-400">{field.helperText}</p>
                   )}
                   <textarea
+                    id={field.key}
                     required={field.required}
                     rows={9}
                     placeholder={field.placeholder}
@@ -157,8 +161,9 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                 </div>
               ) : field.type === 'textarea' ? (
                 <textarea
+                  id={field.key}
                   required={field.required}
-                  rows={3}
+                  rows={field.rows || 3}
                   placeholder={field.placeholder}
                   value={values[field.key] || ''}
                   onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -166,6 +171,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                 />
               ) : field.type === 'select' ? (
                 <select
+                  id={field.key}
                   required={field.required}
                   value={values[field.key] || ''}
                   onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -179,6 +185,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center space-x-2">
                     <input
+                      id={field.key}
                       type="text"
                       required={field.required}
                       placeholder={field.placeholder || 'https://... or upload a file'}
@@ -211,6 +218,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                 </div>
               ) : (
                 <input
+                  id={field.key}
                   type="text"
                   required={field.required}
                   placeholder={field.placeholder}

@@ -91,6 +91,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
           >
             <X size={16} />
@@ -143,7 +144,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         {/* Notification List */}
         <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
           {filteredNotifications.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs">
+            <div className="text-center py-8 text-slate-400 text-xs">
               <CheckCheck size={28} className="mx-auto mb-2 text-slate-600" />
               <span>No notifications matching current filter.</span>
             </div>

@@ -1,14 +1,30 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
 import { AuthModal } from './components/AuthModal';
-import { ProfileEditModal } from './components/ProfileEditModal';
-import { NotificationCenter } from './components/NotificationCenter';
 import { PublicHubView } from './components/PublicHubView';
-import { UnifiedContentEditor, UnifiedContentEditorRequest, UnifiedContentKind } from './components/UnifiedContentEditor';
 import { QuestionSubmitModal } from './components/QuestionSubmitModal';
-import { ThemeSelectorModal } from './components/ThemeSelectorModal';
-import { SocialLinksManagerModal } from './components/SocialLinksManagerModal';
 import { DocumentModal } from './components/DocumentModal';
+import { PublicHubSkeleton, SkeletonCardGrid } from './components/Skeleton';
+
+// These modals are staff/admin-only (never opened by a public/press
+// visitor -- the buttons that open them are themselves gated on
+// isStaffAuthenticated), so statically importing them put staff-only code
+// into the bundle every visitor downloads. Bundle-size audit,
+// ENGINEERING_ASSESSMENT.md medium-term item: "Public bundle size (638 KB /
+// 173 KB gzipped)... still worth trimming since press visitors are often
+// on the clock and on mobile data." UnifiedContentEditor alone is ~550
+// lines and was the single largest component still in the eager bundle.
+// ProfileEditModal is the one exception worth noting: a signed-in *guest*
+// (not staff) can also open it, but it's still infrequent enough relative
+// to its size to be worth lazy-loading like the others.
+const UnifiedContentEditor = lazy(() => import('./components/UnifiedContentEditor').then(m => ({ default: m.UnifiedContentEditor })));
+const ProfileEditModal = lazy(() => import('./components/ProfileEditModal').then(m => ({ default: m.ProfileEditModal })));
+const NotificationCenter = lazy(() => import('./components/NotificationCenter').then(m => ({ default: m.NotificationCenter })));
+const ThemeSelectorModal = lazy(() => import('./components/ThemeSelectorModal').then(m => ({ default: m.ThemeSelectorModal })));
+const SocialLinksManagerModal = lazy(() => import('./components/SocialLinksManagerModal').then(m => ({ default: m.SocialLinksManagerModal })));
+// Type-only import -- erased at compile time, doesn't pull the component's
+// code into this chunk (see the lazy() import above for the actual module).
+import type { UnifiedContentEditorRequest, UnifiedContentKind } from './components/UnifiedContentEditor';
 
 // Code-split everything except the public landing tab (PublicHubView, above)
 // and the small modals. These are sizeable, mostly-internal-staff views that
@@ -28,12 +44,14 @@ const InvestmentView = lazy(() => import('./components/InvestmentView').then(m =
 const CareersView = lazy(() => import('./components/CareersView').then(m => ({ default: m.CareersView })));
 const InquiryDeskView = lazy(() => import('./components/InquiryDeskView').then(m => ({ default: m.InquiryDeskView })));
 const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(m => ({ default: m.ActivityLogView })));
+const PressKitView = lazy(() => import('./components/PressKitView').then(m => ({ default: m.PressKitView })));
 
-// Small, centered loading indicator shown briefly while a lazy tab's code
-// downloads (usually well under a second on a normal connection).
+// Content-shaped placeholder shown briefly while a lazy tab's code
+// downloads (usually well under a second on a normal connection) --
+// reads as "this page is already here" rather than a bare spinner.
 const TabLoadingFallback = () => (
-  <div className="flex items-center justify-center py-24">
-    <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+  <div className="pt-2">
+    <SkeletonCardGrid count={6} />
   </div>
 );
 
@@ -69,6 +87,8 @@ import { fetchSocialLinksFromDb } from './lib/socialLinksApi';
 import { fetchNotificationsFromDb } from './lib/notificationsApi';
 import { fetchActivityLogFromDb } from './lib/activityLogApi';
 import { isSupabaseConfigured } from './lib/supabase';
+import { trackPageview } from './lib/analytics';
+import { LanguageProvider, useLanguage } from './lib/i18n';
 import { AppTheme } from './types';
 
 export default function App() {
@@ -77,23 +97,27 @@ export default function App() {
   // Provider nesting order follows each context's dependencies (see the
   // "Depends on" note at the top of each context file): Notification and
   // Auth have no dependency on each other or on anything below; everything
-  // else needs one or both of them.
+  // else needs one or both of them. LanguageProvider has no dependency on
+  // anything else and nothing below depends on nesting order relative to
+  // it, so it wraps everything at the top level.
   return (
-    <NotificationProvider>
-      <AuthProvider onAuthNavigateHome={() => setActiveTab('public-hub')}>
-        <ActivityLogProvider>
-          <ContentProvider>
-            <InquiryProvider>
-              <EducationProvider>
-                <AdminProvider>
-                  <AppShell activeTab={activeTab} setActiveTab={setActiveTab} />
-                </AdminProvider>
-              </EducationProvider>
-            </InquiryProvider>
-          </ContentProvider>
-        </ActivityLogProvider>
-      </AuthProvider>
-    </NotificationProvider>
+    <LanguageProvider>
+      <NotificationProvider>
+        <AuthProvider onAuthNavigateHome={() => setActiveTab('public-hub')}>
+          <ActivityLogProvider>
+            <ContentProvider>
+              <InquiryProvider>
+                <EducationProvider>
+                  <AdminProvider>
+                    <AppShell activeTab={activeTab} setActiveTab={setActiveTab} />
+                  </AdminProvider>
+                </EducationProvider>
+              </InquiryProvider>
+            </ContentProvider>
+          </ActivityLogProvider>
+        </AuthProvider>
+      </NotificationProvider>
+    </LanguageProvider>
   );
 }
 
@@ -104,6 +128,7 @@ export default function App() {
  * hook for a provider that wraps itself.
  */
 function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
+  const { language, setLanguage, t } = useLanguage();
   const { users, currentUser, isStaffAuthenticated, isAdmin, isAnySignedIn, authLoading, handleUpdateUser, handleLogout } = useAuth();
   const {
     notifications, setNotifications, unreadCount, audioEnabled, setAudioEnabled,
@@ -129,11 +154,31 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
     courses, educationMedia, educationPhotos, setCourses, setEducationMedia, setEducationPhotos,
     handleAddCourse, handleEditCourse, handleDeleteCourse,
     handleAddEducationMedia, handleDeleteEducationMedia,
-    handleAddEducationPhoto, handleDeleteEducationPhoto, handleApplyCourse
+    handleAddEducationPhoto, handleDeleteEducationPhoto, handleUpdateEducationPhoto, handleApplyCourse
   } = useEducation();
   const { socialLinks, setSocialLinks, handleSaveSocialLink, handleDeleteSocialLink } = useAdmin();
 
-  const [currentTheme, setCurrentTheme] = useState<AppTheme>('dark');
+  // Persisted via localStorage (same pattern as the language preference in
+  // src/lib/i18n.tsx) -- now that the theme switcher is available to every
+  // visitor, not just staff, a public/guest visitor's choice should survive
+  // a reload instead of silently reverting to dark every time.
+  const [currentTheme, setCurrentThemeState] = useState<AppTheme>(() => {
+    try {
+      const stored = window.localStorage.getItem('aviyana-insight-theme');
+      if (stored === 'dark' || stored === 'light') return stored;
+    } catch {
+      // localStorage unavailable -- fall through to the default.
+    }
+    return 'dark';
+  });
+  const setCurrentTheme = (theme: AppTheme) => {
+    setCurrentThemeState(theme);
+    try {
+      window.localStorage.setItem('aviyana-insight-theme', theme);
+    } catch {
+      // Best-effort persistence only -- the theme still applies for this session either way.
+    }
+  };
   const [themeModalOpen, setThemeModalOpen] = useState<boolean>(false);
   // Separate from authLoading: tracks the initial public-content fetch
   // (articles, milestones, etc). Without this, the app rendered immediately
@@ -263,6 +308,13 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStaffAuthenticated]);
 
+  // Analytics: fire a pageview-equivalent event on every tab change (see
+  // src/lib/analytics.ts -- this is a total no-op unless VITE_GA_MEASUREMENT_ID
+  // is configured, so nothing is sent in local dev by default).
+  useEffect(() => {
+    trackPageview(activeTab);
+  }, [activeTab]);
+
   // Nothing renders until the initial content fetch resolves -- this is
   // what actually stops the old flash of mock/demo data: previously the app
   // rendered immediately using the built-in placeholder arrays as initial
@@ -271,15 +323,28 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
   // better experience than a flash of content that then visibly changes.
   if (contentLoading || authLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
-        <div className="w-10 h-10 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
-        <p className="text-xs text-slate-500 font-mono tracking-wide">Loading Aviyana Insight…</p>
+      <div className="min-h-screen bg-slate-950">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <PublicHubSkeleton />
+        </div>
       </div>
     );
   }
 
   return (
     <div className={`min-h-screen theme-${currentTheme} text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 transition-colors duration-300`}>
+
+      {/* Skip to main content — WCAG 2.4.1 (Bypass Blocks). Visually hidden
+          until focused (keyboard Tab from page load), so a keyboard or
+          screen-reader user isn't forced through the full nav (12+ items,
+          plus the top banner) on every single page load just to reach the
+          actual content. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-amber-500 focus:text-slate-950 focus:font-bold focus:text-sm"
+      >
+        Skip to main content
+      </a>
 
       {/* Top Luxury Navigation */}
       <Navbar
@@ -292,6 +357,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         onOpenProfileModal={() => setProfileModalOpen(true)}
         onLogout={handleLogout}
         unreadCount={unreadCount}
+        pendingFaqCount={factChecks.filter(f => f.approvalStatus === 'Pending Approval').length}
         onOpenNotifications={() => setNotificationsOpen(true)}
         audioEnabled={audioEnabled}
         setAudioEnabled={setAudioEnabled}
@@ -299,10 +365,13 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         onOpenThemeModal={() => setThemeModalOpen(true)}
         currentTheme={currentTheme}
         onOpenContentEditor={() => openContentEditor(null)}
+        t={t}
+        language={language}
+        setLanguage={setLanguage}
       />
 
       {/* Main Tab View Renderer */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 2xl:pb-6">
+      <main id="main-content" className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 2xl:pb-6">
         {activeTab === 'public-hub' && (
           <PublicHubView
             milestones={milestones}
@@ -317,6 +386,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onSubmitPublicInquiry={handleSubmitPublicInquiry}
             onOpenQuestionModal={() => setQuestionModalOpen(true)}
             onOpenContentEditor={(kind, id) => openContentEditor(kind, id)}
+            t={t}
           />
         )}
 
@@ -330,6 +400,15 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onRequestNewArticle={() => openArticleComposer(undefined, { category: 'Investor Update' })}
             onRequestEditArticle={(articleId) => openArticleComposer(articleId)}
             onDeleteArticle={handleDeleteArticle}
+          />
+        )}
+
+        {activeTab === 'press-kit' && (
+          <PressKitView
+            milestones={milestones}
+            csrImpacts={csrImpacts}
+            onOpenQuestionModal={() => setQuestionModalOpen(true)}
+            t={t}
           />
         )}
 
@@ -372,6 +451,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             educationPhotos={educationPhotos}
             onAddEducationPhoto={handleAddEducationPhoto}
             onDeleteEducationPhoto={handleDeleteEducationPhoto}
+            onUpdateEducationPhoto={handleUpdateEducationPhoto}
             onOpenContentEditor={(kind, id) => openContentEditor(kind, id)}
           />
         )}
@@ -385,9 +465,11 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onOpenProfileModal={() => setProfileModalOpen(true)}
             contentPipeline={contentPipeline}
             articles={articles}
+            factChecks={factChecks}
             inquiries={inquiries}
             notifications={notifications}
             onApproveDraft={handleApproveDraft}
+            onApproveFactCheck={handleEditFactCheck}
           />
         )}
 
@@ -422,6 +504,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onDeleteFactCheck={handleDeleteFactCheck}
             onApproveFactCheck={handleEditFactCheck}
             onOpenDocument={handleOpenDocument}
+            onOpenContentEditor={(id) => openContentEditor('faq', id)}
           />
         )}
 
@@ -457,82 +540,105 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         onClose={() => setAuthModalOpen(false)}
       />
 
-      {/* Profile Management Modal — edit own name/title/avatar */}
-      <ProfileEditModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        currentUser={currentUser}
-        onUpdateUser={handleUpdateUser}
-        articles={articles}
-        contentPipeline={contentPipeline}
-      />
+      {/* Profile Management Modal — edit own name/title/avatar. Rendered
+          only once opened (see the lazy() imports above) -- code-split so a
+          public visitor who never signs in never downloads this chunk. */}
+      {profileModalOpen && (
+        <Suspense fallback={null}>
+          <ProfileEditModal
+            isOpen={profileModalOpen}
+            onClose={() => setProfileModalOpen(false)}
+            currentUser={currentUser}
+            onUpdateUser={handleUpdateUser}
+            articles={articles}
+            contentPipeline={contentPipeline}
+          />
+        </Suspense>
+      )}
 
-      {/* Realtime Notification Center Drawer */}
-      <NotificationCenter
-        isOpen={notificationsOpen}
-        onClose={() => setNotificationsOpen(false)}
-        notifications={notifications}
-        onMarkRead={handleMarkRead}
-        onMarkAllRead={handleMarkAllRead}
-        onSimulateAlert={handleSimulateAlert}
-        onActionClick={handleActionClick}
-        audioEnabled={audioEnabled}
-        setAudioEnabled={setAudioEnabled}
-      />
+      {/* Realtime Notification Center Drawer (staff only) */}
+      {notificationsOpen && (
+        <Suspense fallback={null}>
+          <NotificationCenter
+            isOpen={notificationsOpen}
+            onClose={() => setNotificationsOpen(false)}
+            notifications={notifications}
+            onMarkRead={handleMarkRead}
+            onMarkAllRead={handleMarkAllRead}
+            onSimulateAlert={handleSimulateAlert}
+            onActionClick={handleActionClick}
+            audioEnabled={audioEnabled}
+            setAudioEnabled={setAudioEnabled}
+          />
+        </Suspense>
+      )}
 
-      {/* Design Theme Selector Modal */}
-      <ThemeSelectorModal
-        isOpen={themeModalOpen}
-        onClose={() => setThemeModalOpen(false)}
-        currentTheme={currentTheme}
-        onSelectTheme={(theme) => setCurrentTheme(theme)}
-      />
+      {/* Design Theme Selector Modal (staff only) */}
+      {themeModalOpen && (
+        <Suspense fallback={null}>
+          <ThemeSelectorModal
+            isOpen={themeModalOpen}
+            onClose={() => setThemeModalOpen(false)}
+            currentTheme={currentTheme}
+            onSelectTheme={(theme) => setCurrentTheme(theme)}
+          />
+        </Suspense>
+      )}
 
       {/* Social Links Manager Modal (staff/admin) */}
-      <SocialLinksManagerModal
-        isOpen={socialLinksModalOpen}
-        onClose={() => setSocialLinksModalOpen(false)}
-        socialLinks={socialLinks}
-        onSave={handleSaveSocialLink}
-        onDelete={handleDeleteSocialLink}
-      />
+      {socialLinksModalOpen && (
+        <Suspense fallback={null}>
+          <SocialLinksManagerModal
+            isOpen={socialLinksModalOpen}
+            onClose={() => setSocialLinksModalOpen(false)}
+            socialLinks={socialLinks}
+            onSave={handleSaveSocialLink}
+            onDelete={handleDeleteSocialLink}
+          />
+        </Suspense>
+      )}
 
       {/* Unified Content Editor — one entry point for Milestone / Guest Voice
           (CSR) / Press Statement / Fact-Check / Article / Course / Education
-          media. See Priority 0 in NEXT_SESSION_PLAN.md. */}
-      <UnifiedContentEditor
-        request={contentEditorRequest}
-        onClose={closeContentEditor}
-        currentUser={currentUser}
-        isAdmin={isAdmin}
-        milestones={milestones}
-        csrImpacts={csrImpacts}
-        voiceCuts={voiceCuts}
-        factChecks={factChecks}
-        articles={articles}
-        courses={courses}
-        educationMedia={educationMedia}
-        onAddMilestone={handleAddMilestone}
-        onEditMilestone={handleEditMilestone}
-        onDeleteMilestone={handleDeleteMilestone}
-        onAddCsrImpact={handleAddCsrImpact}
-        onEditCsrImpact={handleEditCsrImpact}
-        onDeleteCsrImpact={handleDeleteCsrImpact}
-        onAddVoiceCut={handleAddVoiceCut}
-        onEditVoiceCut={handleEditVoiceCut}
-        onDeleteVoiceCut={handleDeleteVoiceCut}
-        onAddFactCheck={handleAddFactCheck}
-        onEditFactCheck={handleEditFactCheck}
-        onDeleteFactCheck={handleDeleteFactCheck}
-        onAddArticle={handleAddArticle}
-        onEditArticle={handleEditArticle}
-        onDeleteArticle={handleDeleteArticle}
-        onAddCourse={handleAddCourse}
-        onEditCourse={handleEditCourse}
-        onDeleteCourse={handleDeleteCourse}
-        onAddEducationMedia={handleAddEducationMedia}
-        onDeleteEducationMedia={handleDeleteEducationMedia}
-      />
+          media. See Priority 0 in NEXT_SESSION_PLAN.md. Staff-only, so
+          code-split and only mounted once a request is actually open. */}
+      {contentEditorRequest && (
+        <Suspense fallback={null}>
+          <UnifiedContentEditor
+            request={contentEditorRequest}
+            onClose={closeContentEditor}
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            milestones={milestones}
+            csrImpacts={csrImpacts}
+            voiceCuts={voiceCuts}
+            factChecks={factChecks}
+            articles={articles}
+            courses={courses}
+            educationMedia={educationMedia}
+            onAddMilestone={handleAddMilestone}
+            onEditMilestone={handleEditMilestone}
+            onDeleteMilestone={handleDeleteMilestone}
+            onAddCsrImpact={handleAddCsrImpact}
+            onEditCsrImpact={handleEditCsrImpact}
+            onDeleteCsrImpact={handleDeleteCsrImpact}
+            onAddVoiceCut={handleAddVoiceCut}
+            onEditVoiceCut={handleEditVoiceCut}
+            onDeleteVoiceCut={handleDeleteVoiceCut}
+            onAddFactCheck={handleAddFactCheck}
+            onEditFactCheck={handleEditFactCheck}
+            onDeleteFactCheck={handleDeleteFactCheck}
+            onAddArticle={handleAddArticle}
+            onEditArticle={handleEditArticle}
+            onDeleteArticle={handleDeleteArticle}
+            onAddCourse={handleAddCourse}
+            onEditCourse={handleEditCourse}
+            onDeleteCourse={handleDeleteCourse}
+            onAddEducationMedia={handleAddEducationMedia}
+            onDeleteEducationMedia={handleDeleteEducationMedia}
+          />
+        </Suspense>
+      )}
 
       {/* Verified Government Clearance Certificate Modal */}
       <DocumentModal

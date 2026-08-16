@@ -37,7 +37,7 @@ import {
   LineChart,
   Line
 } from 'recharts';
-import { User, ContentPipelineItem, ArticleItem, PublicInquiry, NotificationItem } from '../types';
+import { User, ContentPipelineItem, ArticleItem, PublicInquiry, NotificationItem, FactCheckItem } from '../types';
 
 interface DashboardViewProps {
   currentUser: User;
@@ -46,9 +46,11 @@ interface DashboardViewProps {
   onOpenProfileModal: () => void;
   contentPipeline: ContentPipelineItem[];
   articles: ArticleItem[];
+  factChecks?: FactCheckItem[];
   inquiries: PublicInquiry[];
   notifications: NotificationItem[];
   onApproveDraft: (id: string) => void;
+  onApproveFactCheck?: (item: FactCheckItem) => void;
   isAdmin?: boolean;
 }
 
@@ -59,10 +61,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenProfileModal,
   contentPipeline,
   articles,
+  factChecks = [],
   inquiries,
   notifications,
   isAdmin = currentUser.accountType === 'admin',
-  onApproveDraft
+  onApproveDraft,
+  onApproveFactCheck
 }) => {
   const [activeDashboardSubTab, setActiveDashboardSubTab] = useState<'overview' | 'metrics'>('overview');
 
@@ -78,7 +82,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const publishedArticlesCount = articles.filter(a => a.status === 'Published').length;
   const pendingApprovalsCount =
     contentPipeline.filter(c => c.status === 'Pending SE Approval').length +
-    articles.filter(a => a.status === 'In Review').length;
+    articles.filter(a => a.status === 'In Review').length +
+    factChecks.filter(f => f.approvalStatus === 'Pending Approval').length;
   const totalInquiriesCount = inquiries.length;
   const activeStaffCount = users.filter(u => u.accountType === 'admin' || u.accountType === 'staff').length;
 
@@ -213,7 +218,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div>
               <div className="text-2xl font-serif font-bold text-white">
-                {articles.filter(a => a.status === 'In Review').length + contentPipeline.filter(c => c.status === 'Pending SE Approval').length}
+                {pendingApprovalsCount}
               </div>
               <div className="text-[11px] text-slate-400">Waiting on your approval right now</div>
             </div>
@@ -375,7 +380,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
               {contentPipeline.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-16">No content pipeline items yet.</p>
+                <p className="text-xs text-slate-400 text-center py-16">No content pipeline items yet.</p>
               ) : (
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -403,7 +408,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
               {inquiriesByCategoryData.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-16">No inquiries received yet.</p>
+                <p className="text-xs text-slate-400 text-center py-16">No inquiries received yet.</p>
               ) : (
                 <div className="h-64 w-full flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
@@ -469,7 +474,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             {contentByStaffData.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-16">No content pipeline activity yet.</p>
+              <p className="text-xs text-slate-400 text-center py-16">No content pipeline activity yet.</p>
             ) : (
               <div className="h-80 w-full pt-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -510,12 +515,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             re-approval after a refresh. */}
         <div className="space-y-3">
           {contentPipeline.filter(cp => cp.status === 'Pending SE Approval').length === 0 && (
-            <p className="text-xs text-slate-500 text-center py-6">Nothing pending — the queue is clear.</p>
+            <p className="text-xs text-slate-400 text-center py-6">Nothing pending — the queue is clear.</p>
           )}
           {contentPipeline.filter(cp => cp.status === 'Pending SE Approval').map((cp) => (
             <div key={cp.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start space-x-3">
-                <img src={cp.mediaPreviewUrl} alt="" className="w-16 h-16 rounded-lg object-cover border border-slate-700 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                <img src={cp.mediaPreviewUrl} alt="Content pipeline media preview" className="w-16 h-16 rounded-lg object-cover border border-slate-700 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
@@ -556,6 +561,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Pending Fact-Checks -- previously invisible from the Dashboard:
+          staff-submitted fact-checks go into their own approval queue
+          (fact_checks.approval_status), completely separate from
+          content_pipeline, so admins checking this page for "what needs my
+          approval" never saw them here, and a staff member had no way to
+          confirm from the Dashboard that their submission actually landed
+          somewhere. Surfacing them here (in addition to the Fact-Check &
+          FAQ tab's own "Pending Approval" tab, which still exists and still
+          works) gives one place to see everything waiting on approval. */}
+      {factChecks.filter(f => f.approvalStatus === 'Pending Approval').length > 0 && (
+        <div className="bg-slate-900/90 border border-amber-500/20 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-serif font-bold text-lg text-white">Pending Fact-Checks</h3>
+              <p className="text-xs text-slate-400">Submitted by staff, awaiting admin approval before publishing</p>
+            </div>
+            <button
+              onClick={() => onNavigateTab('faq')}
+              className="text-xs font-semibold text-amber-300 hover:underline flex items-center gap-1"
+            >
+              <span>View Fact-Check Tab</span>
+              <ExternalLink size={12} />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {factChecks.filter(f => f.approvalStatus === 'Pending Approval').map((fc) => (
+              <div key={fc.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-950 text-amber-300 border border-amber-500/30">
+                      {fc.category}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">{fc.verifiedDate}</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-red-200 line-through opacity-80 mt-1">{fc.rumor}</h4>
+                  <p className="text-xs text-slate-300 mt-0.5 line-clamp-2">{fc.fact}</p>
+                  {fc.createdBy && <div className="text-[10px] text-amber-300/80 mt-1 font-mono">By: {fc.createdBy}</div>}
+                </div>
+
+                {isAdmin && onApproveFactCheck && (
+                  <button
+                    onClick={() => onApproveFactCheck({ ...fc, approvalStatus: 'Published' })}
+                    className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-bold rounded-lg text-xs transition-all flex items-center space-x-1.5 shadow-md shrink-0"
+                  >
+                    <CheckCircle2 size={14} />
+                    <span>Approve & Publish</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Needs Revision -- these were previously invisible on the Dashboard
           entirely (only the full Content Pipeline tab showed them), so a

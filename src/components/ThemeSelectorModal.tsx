@@ -78,6 +78,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
 
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
           >
             <X size={18} />

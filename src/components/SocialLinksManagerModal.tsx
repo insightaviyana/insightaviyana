@@ -52,8 +52,9 @@ export const SocialLinksManagerModal: React.FC<SocialLinksManagerModalProps> = (
           {editing ? (
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Platform Name *</label>
+                <label htmlFor="sl-platform" className="block text-[11px] font-semibold text-slate-300 mb-1">Platform Name *</label>
                 <input
+                  id="sl-platform"
                   type="text"
                   required
                   placeholder="e.g. Instagram"
@@ -63,8 +64,9 @@ export const SocialLinksManagerModal: React.FC<SocialLinksManagerModalProps> = (
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Icon</label>
+                <label htmlFor="sl-icon" className="block text-[11px] font-semibold text-slate-300 mb-1">Icon</label>
                 <select
+                  id="sl-icon"
                   value={editing.iconName}
                   onChange={(e) => setEditing({ ...editing, iconName: e.target.value as SocialLink['iconName'] })}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
@@ -73,8 +75,9 @@ export const SocialLinksManagerModal: React.FC<SocialLinksManagerModalProps> = (
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Handle (e.g. @aviyanaceylon)</label>
+                <label htmlFor="sl-handle" className="block text-[11px] font-semibold text-slate-300 mb-1">Handle (e.g. @aviyanaceylon)</label>
                 <input
+                  id="sl-handle"
                   type="text"
                   placeholder="@aviyanaceylon"
                   value={editing.handle}
@@ -83,8 +86,9 @@ export const SocialLinksManagerModal: React.FC<SocialLinksManagerModalProps> = (
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">URL *</label>
+                <label htmlFor="sl-url" className="block text-[11px] font-semibold text-slate-300 mb-1">URL *</label>
                 <input
+                  id="sl-url"
                   type="text"
                   required
                   placeholder="https://instagram.com/aviyanaceylon"
@@ -94,8 +98,9 @@ export const SocialLinksManagerModal: React.FC<SocialLinksManagerModalProps> = (
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Description (optional)</label>
+                <label htmlFor="sl-description" className="block text-[11px] font-semibold text-slate-300 mb-1">Description (optional)</label>
                 <input
+                  id="sl-description"
                   type="text"
                   placeholder="Short caption shown next to the link"
                   value={editing.description}
@@ -132,7 +137,7 @@ export const SocialLinksManagerModal: React.FC<SocialLinksManagerModalProps> = (
               </button>
 
               {socialLinks.length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-6">No social links added yet.</p>
+                <p className="text-xs text-slate-400 text-center py-6">No social links added yet.</p>
               )}
 
               {socialLinks.map(link => (

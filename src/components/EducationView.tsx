@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   GraduationCap, 
   BookOpen, 
@@ -12,6 +12,8 @@ import {
   Building, 
   Clock, 
   ChevronRight, 
+  ChevronLeft, 
+  Star, 
   Check, 
   ShieldCheck,
   User,
@@ -50,6 +52,7 @@ interface EducationViewProps {
   educationPhotos?: EducationPhoto[];
   onAddEducationPhoto?: (item: EducationPhoto) => void;
   onDeleteEducationPhoto?: (id: string) => void;
+  onUpdateEducationPhoto?: (id: string, updates: Partial<Pick<EducationPhoto, 'albumId' | 'albumName' | 'isCover' | 'caption'>>) => void;
   /** Opens the top-level Unified Content Editor pre-set to 'course' or
    * 'education-media' (and to a specific id when editing). Replaces this
    * page's own local Course/Video composers as the primary entry point.
@@ -73,6 +76,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
   educationPhotos = [],
   onAddEducationPhoto,
   onDeleteEducationPhoto,
+  onUpdateEducationPhoto,
   onOpenContentEditor
 }) => {
   // Only staff/admin should be able to add, edit, or delete Academy
@@ -99,6 +103,69 @@ export const EducationView: React.FC<EducationViewProps> = ({
   const [photoImageUrls, setPhotoImageUrls] = useState<string[]>([]);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [photoCaption, setPhotoCaption] = useState('');
+  // Which album's lightbox is currently open (null = gallery shows album
+  // covers only). See groupPhotosIntoAlbums() below -- this is what lets
+  // the top-level gallery show one card per album (page height stays
+  // proportional to album count, not total photo count) while still
+  // letting every individual photo be browsed and deleted.
+  const [openAlbumId, setOpenAlbumId] = useState<string | null>(null);
+  const [openAlbumPhotoIndex, setOpenAlbumPhotoIndex] = useState(0);
+
+  // Groups the flat educationPhotos array into albums by albumId. A photo
+  // with no albumId (uploaded before this feature existed) becomes its own
+  // single-photo album, keyed by its own id -- so old data keeps displaying
+  // correctly with no backfill/migration needed. Albums are ordered newest
+  // first by their most recent photo's date.
+  interface PhotoAlbum {
+    albumId: string;
+    albumName: string;
+    coverUrl: string;
+    date: string;
+    photos: EducationPhoto[];
+  }
+  const albums: PhotoAlbum[] = useMemo(() => {
+    const groups = new Map<string, EducationPhoto[]>();
+    for (const photo of educationPhotos) {
+      const key = photo.albumId || photo.id;
+      const existing = groups.get(key);
+      if (existing) existing.push(photo);
+      else groups.set(key, [photo]);
+    }
+    return Array.from(groups.entries())
+      .map(([albumId, photos]) => ({
+        albumId,
+        albumName: photos[0].albumName || photos[0].caption || 'Untitled Album',
+        coverUrl: (photos.find(p => p.isCover) || photos[0]).imageUrl,
+        date: photos[0].date,
+        photos,
+      }))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [educationPhotos]);
+  const openAlbum = albums.find(a => a.albumId === openAlbumId) || null;
+  const [renamingAlbum, setRenamingAlbum] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Renames an album by writing the new name (and, for a legacy
+  // pre-album single photo whose albumId falls back to its own id, a real
+  // albumId) to every photo in it -- see the EducationPhoto.albumId /
+  // handleUpdateEducationPhoto comments for why this touches every photo
+  // rather than a separate "albums" table.
+  const renameAlbum = (album: PhotoAlbum, newName: string) => {
+    if (!onUpdateEducationPhoto || !newName.trim()) return;
+    album.photos.forEach(photo => {
+      onUpdateEducationPhoto(photo.id, { albumId: album.albumId, albumName: newName.trim() });
+    });
+  };
+
+  // Sets one photo as the album's cover, clearing the flag on any sibling
+  // that previously had it -- see EducationPhoto.isCover.
+  const setAlbumCover = (album: PhotoAlbum, photoId: string) => {
+    if (!onUpdateEducationPhoto) return;
+    album.photos.forEach(photo => {
+      if (photo.id === photoId && !photo.isCover) onUpdateEducationPhoto(photo.id, { isCover: true });
+      else if (photo.id !== photoId && photo.isCover) onUpdateEducationPhoto(photo.id, { isCover: false });
+    });
+  };
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [uploadingPhotoCount, setUploadingPhotoCount] = useState(0);
   const [applicantName, setApplicantName] = useState('');
@@ -284,9 +351,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
         </div>
 
         {educationMedia.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-8">No videos added yet.</p>
+          <p className="text-xs text-slate-400 text-center py-8">No videos added yet.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {educationMedia.map(media => (
               <div key={media.id} className="relative bg-slate-950/80 border border-slate-800 rounded-2xl overflow-hidden hover:border-amber-500/50 transition-all group">
                 {isStaffAuthenticated && onDeleteEducationMedia && (
@@ -302,7 +369,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
                 {/* Plays in-page via the same SmartVideoPlayer used everywhere else on
                     the site -- no more redirecting off to YouTube in a new tab. */}
                 <button type="button" onClick={() => setPlayingMedia(media)} className="block relative h-40 overflow-hidden w-full text-left">
-                  <img loading="lazy" src={media.thumbnailUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <img loading="lazy" src={media.thumbnailUrl} alt={media.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-11 h-11 rounded-full bg-black/60 border-2 border-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -317,7 +384,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
                   <h4 className="font-serif font-bold text-white text-sm">{media.title}</h4>
                   <p className="text-xs text-amber-300 font-semibold mt-0.5">{media.personName}</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">{media.personDetail}</p>
-                  <p className="text-[10px] text-slate-500 font-mono mt-2">{media.date}</p>
+                  <p className="text-[10px] text-slate-400 font-mono mt-2">{media.date}</p>
                 </div>
               </div>
             ))}
@@ -340,33 +407,34 @@ export const EducationView: React.FC<EducationViewProps> = ({
               onClick={() => setPhotoModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition-all shrink-0"
             >
-              <Plus size={12} /> Add Photo
+              <Plus size={12} /> Add Album
             </button>
           )}
         </div>
 
-        {educationPhotos.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-8">No photos added yet.</p>
+        {albums.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-8">No photos added yet.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {educationPhotos.map(photo => (
-              <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-slate-800 hover:border-amber-500/50 transition-all aspect-square">
-                {isStaffAuthenticated && onDeleteEducationPhoto && (
-                  <button
-                    type="button"
-                    onClick={() => { if (window.confirm('Delete this photo?')) onDeleteEducationPhoto(photo.id); }}
-                    className="absolute top-1.5 right-1.5 z-10 p-1 rounded-lg bg-slate-950/90 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/40 opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <Trash2 size={11} />
-                  </button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {albums.map(album => (
+              <button
+                type="button"
+                key={album.albumId}
+                onClick={() => { setOpenAlbumId(album.albumId); setOpenAlbumPhotoIndex(0); setRenamingAlbum(false); }}
+                className="relative group rounded-xl overflow-hidden border border-slate-800 hover:border-amber-500/50 transition-all aspect-square text-left"
+              >
+                <img loading="lazy" src={album.coverUrl} alt={album.albumName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/10 to-transparent" />
+                {album.photos.length > 1 && (
+                  <span className="absolute top-1.5 right-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-950/90 text-amber-300 text-[10px] font-bold font-mono border border-amber-500/30">
+                    <ImageIcon size={10} /> {album.photos.length}
+                  </span>
                 )}
-                <img loading="lazy" src={photo.imageUrl} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                {photo.caption && (
-                  <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-slate-950 to-transparent">
-                    <p className="text-[10px] text-slate-200 line-clamp-2">{photo.caption}</p>
-                  </div>
-                )}
-              </div>
+                <div className="absolute inset-x-0 bottom-0 p-2.5">
+                  <p className="text-xs font-semibold text-white line-clamp-2">{album.albumName}</p>
+                  <p className="text-[10px] text-slate-300 font-mono mt-0.5">{album.date}</p>
+                </div>
+              </button>
             ))}
           </div>
         )}
@@ -563,8 +631,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                   <form onSubmit={handleApplyCourse} className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] text-slate-300 mb-1">Full Name *</label>
+                        <label htmlFor="edu-app-name" className="block text-[11px] text-slate-300 mb-1">Full Name *</label>
                         <input
+                          id="edu-app-name"
                           type="text"
                           required
                           placeholder="Your Name"
@@ -575,8 +644,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-300 mb-1">Email Address *</label>
+                        <label htmlFor="edu-app-email" className="block text-[11px] text-slate-300 mb-1">Email Address *</label>
                         <input
+                          id="edu-app-email"
                           type="email"
                           required
                           placeholder="email@domain.com"
@@ -589,8 +659,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] text-slate-300 mb-1">Contact Number *</label>
+                        <label htmlFor="edu-app-contact" className="block text-[11px] text-slate-300 mb-1">Contact Number *</label>
                         <input
+                          id="edu-app-contact"
                           type="tel"
                           required
                           placeholder="+94 77 123 4567"
@@ -601,8 +672,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-300 mb-1">Educational Background</label>
+                        <label htmlFor="edu-app-background" className="block text-[11px] text-slate-300 mb-1">Educational Background</label>
                         <input
+                          id="edu-app-background"
                           type="text"
                           placeholder="e.g. Hotel School Diploma / O/L / A/L"
                           value={applicantNote}
@@ -663,33 +735,34 @@ export const EducationView: React.FC<EducationViewProps> = ({
               className="p-6 space-y-4"
             >
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Type</label>
-                <select value={mediaType} onChange={e => setMediaType(e.target.value as 'Student Voice' | 'Event')} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white">
+                <label htmlFor="edu-media-type" className="block text-[11px] font-semibold text-slate-300 mb-1">Type</label>
+                <select id="edu-media-type" value={mediaType} onChange={e => setMediaType(e.target.value as 'Student Voice' | 'Event')} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white">
                   <option value="Student Voice">Student Voice / Testimonial</option>
                   <option value="Event">School Event</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Title</label>
-                <input required value={mediaTitle} onChange={e => setMediaTitle(e.target.value)} placeholder="e.g. From Trainee to Sous Chef" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <label htmlFor="edu-media-title" className="block text-[11px] font-semibold text-slate-300 mb-1">Title</label>
+                <input id="edu-media-title" required value={mediaTitle} onChange={e => setMediaTitle(e.target.value)} placeholder="e.g. From Trainee to Sous Chef" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">{mediaType === 'Event' ? 'Event Name' : 'Student Name'}</label>
-                <input required value={mediaPersonName} onChange={e => setMediaPersonName(e.target.value)} placeholder={mediaType === 'Event' ? 'e.g. Graduation Ceremony 2026' : 'e.g. Nimali Perera'} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <label htmlFor="edu-media-person-name" className="block text-[11px] font-semibold text-slate-300 mb-1">{mediaType === 'Event' ? 'Event Name' : 'Student Name'}</label>
+                <input id="edu-media-person-name" required value={mediaPersonName} onChange={e => setMediaPersonName(e.target.value)} placeholder={mediaType === 'Event' ? 'e.g. Graduation Ceremony 2026' : 'e.g. Nimali Perera'} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">{mediaType === 'Event' ? 'Event Detail' : 'Batch / Program'}</label>
-                <input required value={mediaPersonDetail} onChange={e => setMediaPersonDetail(e.target.value)} placeholder={mediaType === 'Event' ? 'e.g. July 2026, Main Campus' : 'e.g. Batch of 2025, F&B Management'} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <label htmlFor="edu-media-person-detail" className="block text-[11px] font-semibold text-slate-300 mb-1">{mediaType === 'Event' ? 'Event Detail' : 'Batch / Program'}</label>
+                <input id="edu-media-person-detail" required value={mediaPersonDetail} onChange={e => setMediaPersonDetail(e.target.value)} placeholder={mediaType === 'Event' ? 'e.g. July 2026, Main Campus' : 'e.g. Batch of 2025, F&B Management'} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Video URL (YouTube link)</label>
-                <input required value={mediaVideoUrl} onChange={e => setMediaVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <label htmlFor="edu-media-video-url" className="block text-[11px] font-semibold text-slate-300 mb-1">Video URL (YouTube link)</label>
+                <input id="edu-media-video-url" required value={mediaVideoUrl} onChange={e => setMediaVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Thumbnail Image (optional)</label>
+                <label htmlFor="edu-media-thumbnail" className="block text-[11px] font-semibold text-slate-300 mb-1">Thumbnail Image (optional)</label>
                 <div className="space-y-1.5">
                   <div className="flex items-center space-x-2">
                     <input
+                      id="edu-media-thumbnail"
                       type="text"
                       value={mediaThumbnailUrl}
                       onChange={e => setMediaThumbnailUrl(e.target.value)}
@@ -751,13 +824,144 @@ export const EducationView: React.FC<EducationViewProps> = ({
         </div>
       )}
 
+      {/* ALBUM LIGHTBOX -- browsing an album opens this instead of taking
+          permanent page space; the gallery above only ever shows one card
+          per album regardless of how many photos it holds. */}
+      {openAlbum && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={() => setOpenAlbumId(null)}>
+          <div className="relative w-full max-w-3xl bg-slate-900 border border-amber-500/30 rounded-2xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setOpenAlbumId(null)} aria-label="Close album" className="absolute top-3 right-3 z-20 p-1.5 rounded-lg bg-slate-950/90 text-slate-300 hover:text-white hover:bg-slate-800">
+              <X size={18} />
+            </button>
+
+            <div className="relative aspect-video bg-black flex items-center justify-center">
+              <img
+                src={openAlbum.photos[openAlbumPhotoIndex].imageUrl}
+                alt={openAlbum.photos[openAlbumPhotoIndex].caption || openAlbum.albumName}
+                className="max-w-full max-h-full object-contain"
+              />
+              {openAlbum.photos.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Previous photo"
+                    onClick={() => setOpenAlbumPhotoIndex(i => (i - 1 + openAlbum.photos.length) % openAlbum.photos.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-950/80 text-white hover:bg-amber-500 hover:text-slate-950 border border-amber-500/40 transition-all"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next photo"
+                    onClick={() => setOpenAlbumPhotoIndex(i => (i + 1) % openAlbum.photos.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-950/80 text-white hover:bg-amber-500 hover:text-slate-950 border border-amber-500/40 transition-all"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-slate-950/80 text-amber-300 text-[10px] font-mono border border-amber-500/30">
+                    {openAlbumPhotoIndex + 1} / {openAlbum.photos.length}
+                  </span>
+                </>
+              )}
+              {isStaffAuthenticated && onUpdateEducationPhoto && openAlbum.photos.length > 1 && (
+                openAlbum.photos[openAlbumPhotoIndex].id !== (openAlbum.photos.find(p => p.isCover) || openAlbum.photos[0]).id ? (
+                  <button
+                    type="button"
+                    onClick={() => setAlbumCover(openAlbum, openAlbum.photos[openAlbumPhotoIndex].id)}
+                    className="absolute top-3 left-12 z-20 p-1.5 rounded-lg bg-slate-950/90 text-amber-300 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/40 transition-all"
+                    title="Set as album cover"
+                  >
+                    <Star size={14} />
+                  </button>
+                ) : (
+                  <span className="absolute top-3 left-12 z-20 p-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40" title="Album cover">
+                    <Star size={14} fill="currentColor" />
+                  </span>
+                )
+              )}
+              {isStaffAuthenticated && onDeleteEducationPhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const photo = openAlbum.photos[openAlbumPhotoIndex];
+                    if (!window.confirm('Delete this photo?')) return;
+                    onDeleteEducationPhoto(photo.id);
+                    // Closing and re-picking avoids indexing into a
+                    // now-stale photos array after the delete lands.
+                    if (openAlbum.photos.length <= 1) setOpenAlbumId(null);
+                    else setOpenAlbumPhotoIndex(i => Math.min(i, openAlbum.photos.length - 2));
+                  }}
+                  className="absolute top-3 left-3 z-20 p-1.5 rounded-lg bg-slate-950/90 text-red-300 hover:bg-red-500 hover:text-white border border-red-500/40 transition-all"
+                  title="Delete this photo"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="p-5">
+              {renamingAlbum ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    renameAlbum(openAlbum, renameValue);
+                    setRenamingAlbum(false);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    autoFocus
+                    aria-label="Album name"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-slate-950 border border-amber-500/40 rounded-lg text-sm font-serif font-bold text-white focus:outline-none focus:border-amber-400"
+                  />
+                  <button type="submit" className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold">Save</button>
+                  <button type="button" onClick={() => setRenamingAlbum(false)} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">Cancel</button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h3 className="font-serif font-bold text-lg text-white">{openAlbum.albumName}</h3>
+                  {isStaffAuthenticated && onUpdateEducationPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => { setRenameValue(openAlbum.albumName); setRenamingAlbum(true); }}
+                      aria-label="Rename album"
+                      className="p-1 rounded-md text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-all"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                </div>
+              )}
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{openAlbum.date} • {openAlbum.photos.length} photo{openAlbum.photos.length !== 1 ? 's' : ''}</p>
+            </div>
+
+            {openAlbum.photos.length > 1 && (
+              <div className="px-5 pb-5 flex gap-2 overflow-x-auto">
+                {openAlbum.photos.map((photo, idx) => (
+                  <button
+                    type="button"
+                    key={photo.id}
+                    onClick={() => setOpenAlbumPhotoIndex(idx)}
+                    className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${idx === openAlbumPhotoIndex ? 'border-amber-400' : 'border-slate-800 opacity-70 hover:opacity-100'}`}
+                  >
+                    <img src={photo.imageUrl} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ADD PHOTO(S) MODAL — supports adding a whole batch/album of photos
           in one go, not just one at a time. */}
       {photoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
           <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-5 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 border-b border-amber-500/20 shrink-0">
-              <h3 className="font-serif font-bold text-lg text-white">Add Photos</h3>
+              <h3 className="font-serif font-bold text-lg text-white">Add Photo Album</h3>
               <button onClick={() => { setPhotoModalOpen(false); setPhotoImageUrls([]); setPhotoUrlInput(''); setPhotoCaption(''); }} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
                 <X size={18} />
               </button>
@@ -765,18 +969,22 @@ export const EducationView: React.FC<EducationViewProps> = ({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!onAddEducationPhoto || photoImageUrls.length === 0) return;
+                if (!onAddEducationPhoto || photoImageUrls.length === 0 || !photoCaption.trim()) return;
                 const date = new Date().toISOString().split('T')[0];
                 // One EducationPhoto per queued image, all sharing this
-                // batch's caption -- this is what lets staff upload a whole
-                // album (e.g. 20 graduation photos) in a single submit
-                // instead of repeating the whole modal flow per photo.
+                // batch's albumId/albumName -- this is what lets staff
+                // upload a whole album (e.g. 20 graduation photos) in a
+                // single submit AND have it show as one browsable album
+                // afterwards, instead of one flat, ever-growing photo grid.
+                const albumId = `edu-album-${Date.now()}`;
                 photoImageUrls.forEach((url, idx) => {
                   onAddEducationPhoto({
                     id: `edu-photo-${Date.now()}-${idx}`,
                     imageUrl: url,
                     caption: photoCaption,
-                    date
+                    date,
+                    albumId,
+                    albumName: photoCaption
                   });
                 });
                 setPhotoModalOpen(false);
@@ -785,12 +993,18 @@ export const EducationView: React.FC<EducationViewProps> = ({
               className="p-6 space-y-4 overflow-y-auto"
             >
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                <label htmlFor="edu-photo-caption" className="block text-[11px] font-semibold text-slate-300 mb-1">Album Name *</label>
+                <input id="edu-photo-caption" required value={photoCaption} onChange={e => setPhotoCaption(e.target.value)} placeholder="e.g. Graduation Day, July 2026" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <p className="text-[10px] text-slate-400 mt-1">Shown as the album's cover title -- every photo added below joins this one album.</p>
+              </div>
+              <div>
+                <label htmlFor="edu-photo-url" className="block text-[11px] font-semibold text-slate-300 mb-1">
                   Photos {photoImageUrls.length > 0 && <span className="text-amber-400">({photoImageUrls.length} queued)</span>}
                 </label>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <input
+                      id="edu-photo-url"
                       type="text"
                       value={photoUrlInput}
                       onChange={e => setPhotoUrlInput(e.target.value)}
@@ -832,12 +1046,12 @@ export const EducationView: React.FC<EducationViewProps> = ({
                       />
                     </label>
                   </div>
-                  <p className="text-[10px] text-slate-500">Select multiple files at once, or add pasted URLs one by one — everything queued below is added as one album when you submit.</p>
+                  <p className="text-[10px] text-slate-400">Select multiple files at once, or add pasted URLs one by one — everything queued below is added as one album when you submit.</p>
                   {photoImageUrls.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 pt-1">
                       {photoImageUrls.map((url, idx) => (
                         <div key={`${url}-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-800">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <img src={url} alt={`Uploaded photo ${idx + 1} preview`} className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => setPhotoImageUrls(prev => prev.filter((_, i) => i !== idx))}
@@ -852,13 +1066,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                   )}
                 </div>
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Caption (optional, applied to all photos in this batch)</label>
-                <input value={photoCaption} onChange={e => setPhotoCaption(e.target.value)} placeholder="e.g. Graduation Day, July 2026" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
-              </div>
               <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-800 shrink-0">
                 <button type="button" onClick={() => { setPhotoModalOpen(false); setPhotoImageUrls([]); setPhotoUrlInput(''); setPhotoCaption(''); }} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl text-xs">Cancel</button>
-                <button type="submit" disabled={photoImageUrls.length === 0} className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold rounded-xl text-xs">
+                <button type="submit" disabled={photoImageUrls.length === 0 || !photoCaption.trim()} className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold rounded-xl text-xs">
                   Add {photoImageUrls.length > 1 ? `${photoImageUrls.length} Photos` : 'Photo'}
                 </button>
               </div>
@@ -891,8 +1101,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
             <form onSubmit={handleCreateCourse} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Course Title *</label>
+                  <label htmlFor="edu-course-title" className="block text-xs font-semibold text-slate-300 mb-1">Course Title *</label>
                   <input
+                    id="edu-course-title"
                     type="text"
                     required
                     placeholder="e.g. Ceylon Sommelier & Mixology Mastery"
@@ -903,8 +1114,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Category *</label>
+                  <label htmlFor="edu-course-category" className="block text-xs font-semibold text-slate-300 mb-1">Category *</label>
                   <select
+                    id="edu-course-category"
                     value={cCategory}
                     onChange={(e) => setCCategory(e.target.value as any)}
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
@@ -919,8 +1131,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Duration</label>
+                  <label htmlFor="edu-course-duration" className="block text-xs font-semibold text-slate-300 mb-1">Duration</label>
                   <input
+                    id="edu-course-duration"
                     type="text"
                     placeholder="e.g. 3 Months (Full-Time)"
                     value={cDuration}
@@ -930,8 +1143,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Instructor / Faculty</label>
+                  <label htmlFor="edu-course-instructor" className="block text-xs font-semibold text-slate-300 mb-1">Instructor / Faculty</label>
                   <input
+                    id="edu-course-instructor"
                     type="text"
                     placeholder="e.g. Master Sommelier Jean Dupont"
                     value={cInstructor}
@@ -943,8 +1157,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Badge Tag</label>
+                  <label htmlFor="edu-course-badge" className="block text-xs font-semibold text-slate-300 mb-1">Badge Tag</label>
                   <input
+                    id="edu-course-badge"
                     type="text"
                     placeholder="e.g. 100% Sponsored Scholarship"
                     value={cBadge}
@@ -954,8 +1169,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Intake Schedule</label>
+                  <label htmlFor="edu-course-schedule" className="block text-xs font-semibold text-slate-300 mb-1">Intake Schedule</label>
                   <input
+                    id="edu-course-schedule"
                     type="text"
                     placeholder="e.g. Batch 4 Starts: October 2026"
                     value={cSchedule}
@@ -966,8 +1182,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Course Description *</label>
+                <label htmlFor="edu-course-description" className="block text-xs font-semibold text-slate-300 mb-1">Course Description *</label>
                 <textarea
+                  id="edu-course-description"
                   rows={3}
                   required
                   placeholder="Detailed course overview and learning objectives..."
@@ -978,8 +1195,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Program Benefits & Curriculum (One per line)</label>
+                <label htmlFor="edu-course-benefits" className="block text-xs font-semibold text-slate-300 mb-1">Program Benefits & Curriculum (One per line)</label>
                 <textarea
+                  id="edu-course-benefits"
                   rows={3}
                   placeholder="Guaranteed job placement&#10;Full monthly stipend&#10;International certification"
                   value={cHighlights}

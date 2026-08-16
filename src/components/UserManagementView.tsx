@@ -209,7 +209,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
           <Loader2 size={22} className="animate-spin mr-2" /> Loading accounts...
         </div>
       ) : users.length === 0 ? (
-        <div className="text-center py-16 text-slate-500 text-sm">No accounts found yet.</div>
+        <div className="text-center py-16 text-slate-400 text-sm">No accounts found yet.</div>
       ) : (
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
@@ -271,20 +271,21 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
           <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-5 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 border-b border-amber-500/20">
               <h3 className="font-serif font-bold text-lg text-white">{editingUser ? 'Edit User' : 'Add New User'}</h3>
-              <button onClick={() => setModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+              <button onClick={() => setModalOpen(false)} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-3 flex-1">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Full Name</label>
-                <input required value={formName} onChange={e => setFormName(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
+                <label htmlFor="um-name" className="block text-[11px] font-semibold text-slate-300 mb-1">Full Name</label>
+                <input id="um-name" required value={formName} onChange={e => setFormName(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Email</label>
+                <label htmlFor="um-email" className="block text-[11px] font-semibold text-slate-300 mb-1">Email</label>
                 <input
+                  id="um-email"
                   required
                   type="email"
                   disabled={!!editingUser}
@@ -292,19 +293,19 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
                   onChange={e => setFormEmail(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white disabled:opacity-50"
                 />
-                {editingUser && <p className="text-[10px] text-slate-500 mt-1">Email can't be changed here.</p>}
+                {editingUser && <p className="text-[10px] text-slate-400 mt-1">Email can't be changed here.</p>}
               </div>
 
               {!editingUser && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Temporary Password</label>
-                  <input required type="text" minLength={6} value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Min. 6 characters" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
+                  <label htmlFor="um-password" className="block text-[11px] font-semibold text-slate-300 mb-1">Temporary Password</label>
+                  <input id="um-password" required type="text" minLength={6} value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Min. 6 characters" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
                 </div>
               )}
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Account Type</label>
-                <select value={formAccountType} onChange={e => setFormAccountType(e.target.value as AccountType)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white">
+                <label htmlFor="um-account-type" className="block text-[11px] font-semibold text-slate-300 mb-1">Account Type</label>
+                <select id="um-account-type" value={formAccountType} onChange={e => setFormAccountType(e.target.value as AccountType)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white">
                   <option value="admin">Admin — full access + user management</option>
                   <option value="staff">Staff — role-based tab access</option>
                   <option value="guest">Guest Reader — public tabs only</option>
@@ -313,16 +314,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
 
               {formAccountType !== 'guest' && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Staff Role (which tabs they can see)</label>
-                  <select value={formStaffRole} onChange={e => setFormStaffRole(e.target.value as UserRole)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white">
+                  <label htmlFor="um-staff-role" className="block text-[11px] font-semibold text-slate-300 mb-1">Staff Role (which tabs they can see)</label>
+                  <select id="um-staff-role" value={formStaffRole} onChange={e => setFormStaffRole(e.target.value as UserRole)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white">
                     {STAFF_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                 </div>
               )}
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Title (shown on profile)</label>
-                <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="e.g. Front Office Manager" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
+                <label htmlFor="um-title" className="block text-[11px] font-semibold text-slate-300 mb-1">Title (shown on profile)</label>
+                <input id="um-title" value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="e.g. Front Office Manager" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
               </div>
 
               {formError && (

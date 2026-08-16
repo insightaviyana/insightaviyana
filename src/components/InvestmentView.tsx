@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, ShieldCheck, FileText, HelpCircle, ArrowRight, PlayCircle, Mail, X, Calendar, Plus, Pencil, Trash2, Calculator } from 'lucide-react';
 import { ArticleItem, FactCheckItem } from '../types';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
+import { ArticleContentRenderer } from './ArticleContentRenderer';
 
 interface InvestmentViewProps {
   articles: ArticleItem[];
@@ -82,7 +83,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
             />
           </div>
         ) : (
-          <div className="mt-6 flex items-center gap-2 text-xs text-slate-500 bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3">
+          <div className="mt-6 flex items-center gap-2 text-xs text-slate-400 bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3">
             <PlayCircle size={16} />
             <span>No investor video published yet -- attach a video to an "Investor Update" post to feature it here.</span>
           </div>
@@ -111,7 +112,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30 shrink-0 mt-0.5">Fact</span>
                   <p className="text-xs text-white font-medium">{fc.fact}</p>
                 </div>
-                <div className="text-[10px] text-slate-500 mt-2 font-mono">Source: {fc.officialSource} • Verified {fc.verifiedDate}</div>
+                <div className="text-[10px] text-slate-400 mt-2 font-mono">Source: {fc.officialSource} • Verified {fc.verifiedDate}</div>
               </div>
             ))}
           </div>
@@ -137,7 +138,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
         </div>
 
         {investorArticles.length === 0 ? (
-          <p className="text-xs text-slate-500 bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <p className="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-4">
             No investor updates published yet. Check back soon, or use the button below to ask a question directly.
           </p>
         ) : (
@@ -151,8 +152,10 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
                 {article.coverImageUrl && (
                   <div className="aspect-video overflow-hidden">
                     <img
+                      loading="lazy"
+                      decoding="async"
                       src={article.coverImageUrl}
-                      alt=""
+                      alt={article.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
                     />
@@ -238,9 +241,11 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
                 </div>
               ) : selectedArticle.coverImageUrl ? (
                 <img
+                  loading="lazy"
+                  decoding="async"
                   src={selectedArticle.coverImageUrl}
-                  alt=""
-                  className="w-full aspect-video object-cover"
+                  alt={selectedArticle.title}
+                  className="w-full aspect-video object-contain bg-black"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               ) : null}
@@ -264,11 +269,11 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
               </div>
               <h2 className="text-xl font-serif font-bold text-white">{selectedArticle.title}</h2>
               <p className="text-sm text-slate-400 mt-1">{selectedArticle.subtitle}</p>
-              <div className="mt-4 text-sm text-slate-200 whitespace-pre-line leading-relaxed">
-                {selectedArticle.content}
+              <div className="mt-4 text-sm text-slate-200">
+                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4" />
               </div>
               <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   Published by {selectedArticle.author} ({selectedArticle.authorRole})
                 </span>
                 {isStaffAuthenticated && (
@@ -346,8 +351,9 @@ const ROICalculatorSection: React.FC<{ onOpenQuestionModal: () => void }> = ({ o
           {/* Slider + input */}
           <div className="lg:col-span-2 space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-2">Your Investment Amount (LKR)</label>
+              <label htmlFor="inv-amount" className="block text-xs font-semibold text-slate-400 mb-2">Your Investment Amount (LKR)</label>
               <input
+                id="inv-amount"
                 type="number"
                 min={0}
                 step={100000}
@@ -357,6 +363,7 @@ const ROICalculatorSection: React.FC<{ onOpenQuestionModal: () => void }> = ({ o
               />
               <input
                 type="range"
+                aria-label="Investment amount slider"
                 min={0}
                 max={MAX_SLIDER}
                 step={100000}
@@ -364,7 +371,7 @@ const ROICalculatorSection: React.FC<{ onOpenQuestionModal: () => void }> = ({ o
                 onChange={(e) => setAmount(Number(e.target.value))}
                 className="w-full mt-3 accent-amber-500"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono mt-1">
                 <span>0</span>
                 <span>LKR {formatLKR(MAX_SLIDER)}+</span>
               </div>
@@ -425,7 +432,7 @@ const ROICalculatorSection: React.FC<{ onOpenQuestionModal: () => void }> = ({ o
           </div>
         </div>
 
-        <p className="text-[11px] text-slate-500 mt-6 max-w-2xl">
+        <p className="text-[11px] text-slate-400 mt-6 max-w-2xl">
           This calculator illustrates the published 20% / 1-year return program and is not a guarantee, offer, or solicitation. Terms, minimums, and eligibility are confirmed directly with our Investor Relations team before any commitment.
         </p>
       </div>

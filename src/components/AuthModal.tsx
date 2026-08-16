@@ -83,7 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {mode === 'signin' ? 'Sign In' : 'Create a Reader Account'}
             </h3>
           </div>
-          <button onClick={handleClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={handleClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <X size={18} />
           </button>
         </div>
@@ -142,7 +142,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 h-px bg-slate-800" />
-                <span className="text-[10px] text-slate-500 uppercase font-mono">or</span>
+                <span className="text-[10px] text-slate-400 uppercase font-mono">or</span>
                 <div className="flex-1 h-px bg-slate-800" />
               </div>
 
@@ -153,6 +153,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     <input
                       required
                       type="text"
+                      aria-label="Full name"
                       placeholder="Full name"
                       value={name}
                       onChange={e => setName(e.target.value)}
@@ -165,6 +166,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <input
                     required
                     type="email"
+                    aria-label="Email"
                     placeholder="Email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -177,6 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     required
                     type="password"
                     minLength={6}
+                    aria-label="Password"
                     placeholder="Password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -199,7 +202,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </form>
 
               {mode === 'signup' && (
-                <p className="text-[11px] text-slate-500 mt-4 text-center leading-relaxed">
+                <p className="text-[11px] text-slate-400 mt-4 text-center leading-relaxed">
                   This creates a <strong className="text-amber-300/80">Guest Reader</strong> account (public tabs only).
                   Staff and Admin accounts are created by an administrator in User Management.
                 </p>

@@ -108,7 +108,7 @@ export const SerpMonitoringView: React.FC<SerpMonitoringViewProps> = () => {
           keep showing fabricated numbers next to a small disclaimer, this is
           now an honest empty state until a real rank-tracking API is wired up. */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-3">
-        <div className="w-14 h-14 rounded-full bg-slate-800 text-slate-500 flex items-center justify-center mx-auto">
+        <div className="w-14 h-14 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
           <Search size={26} />
         </div>
         <h3 className="font-serif font-bold text-base text-white">Rank Tracking Not Connected</h3>

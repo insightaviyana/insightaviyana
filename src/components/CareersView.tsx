@@ -176,11 +176,13 @@ export const CareersView: React.FC<CareersViewProps> = ({
 
       {/* Application Form */}
       <div className="bg-slate-900/60 border border-amber-500/20 rounded-3xl p-6 sm:p-8">
-        <h2 className="text-xl font-serif font-bold text-white mb-1">Submit a Job Opportunity Inquiry</h2>
-        <p className="text-xs text-slate-400 mb-6">Tell us what role interests you, attach your CV, and our HR team will get back to you.</p>
+        <div className="max-w-2xl mx-auto text-center mb-6">
+          <h2 className="text-xl font-serif font-bold text-white mb-1">Submit a Job Opportunity Inquiry</h2>
+          <p className="text-xs text-slate-400">Tell us what role interests you, attach your CV, and our HR team will get back to you.</p>
+        </div>
 
         {submittedTicket ? (
-          <div className="bg-slate-950 border border-emerald-500/40 rounded-2xl p-6 text-center space-y-3">
+          <div className="bg-slate-950 border border-emerald-500/40 rounded-2xl p-6 text-center space-y-3 max-w-2xl mx-auto">
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
               <CheckCircle2 size={32} />
             </div>
@@ -189,41 +191,41 @@ export const CareersView: React.FC<CareersViewProps> = ({
             <button onClick={resetForm} className="text-xs text-amber-300 hover:underline">Submit another application</button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-amber-400">*</span></label>
+                <label htmlFor="careers-name" className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-amber-400">*</span></label>
                 <div className="relative">
                   <User size={15} className="absolute left-3 top-2.5 text-slate-500" />
-                  <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Nimali Perera" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                  <input id="careers-name" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Nimali Perera" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Number</label>
+                <label htmlFor="careers-contact" className="block text-xs font-semibold text-slate-300 mb-1">Contact Number</label>
                 <div className="relative">
                   <Phone size={15} className="absolute left-3 top-2.5 text-slate-500" />
-                  <input value={contact} onChange={e => setContact(e.target.value)} placeholder="e.g. +94 77 123 4567" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                  <input id="careers-contact" value={contact} onChange={e => setContact(e.target.value)} placeholder="e.g. +94 77 123 4567" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-amber-400">*</span></label>
+                <label htmlFor="careers-email" className="block text-xs font-semibold text-slate-300 mb-1">Email Address <span className="text-amber-400">*</span></label>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3 top-2.5 text-slate-500" />
-                  <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your.email@domain.com" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                  <input id="careers-email" required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your.email@domain.com" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Position of Interest <span className="text-amber-400">*</span></label>
-                <input required value={position} onChange={e => setPosition(e.target.value)} placeholder="e.g. Guest Services, F&B, Engineering" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                <label htmlFor="careers-position" className="block text-xs font-semibold text-slate-300 mb-1">Position of Interest <span className="text-amber-400">*</span></label>
+                <input id="careers-position" required value={position} onChange={e => setPosition(e.target.value)} placeholder="e.g. Guest Services, F&B, Engineering" className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Message (optional)</label>
-              <textarea rows={3} value={message} onChange={e => setMessage(e.target.value)} placeholder="Tell us about your experience or why you're interested..." className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 resize-none" />
+              <label htmlFor="careers-message" className="block text-xs font-semibold text-slate-300 mb-1">Message (optional)</label>
+              <textarea id="careers-message" rows={3} value={message} onChange={e => setMessage(e.target.value)} placeholder="Tell us about your experience or why you're interested..." className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 resize-none" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -236,10 +238,10 @@ export const CareersView: React.FC<CareersViewProps> = ({
                 </label>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">LinkedIn Profile URL</label>
+                <label htmlFor="careers-linkedin" className="block text-xs font-semibold text-slate-300 mb-1">LinkedIn Profile URL</label>
                 <div className="relative">
                   <Linkedin size={15} className="absolute left-3 top-2.5 text-slate-500" />
-                  <input type="url" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/your-profile" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                  <input id="careers-linkedin" type="url" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/your-profile" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
                 </div>
               </div>
             </div>

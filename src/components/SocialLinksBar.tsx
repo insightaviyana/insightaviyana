@@ -71,7 +71,7 @@ export const SocialLinksBar: React.FC<SocialLinksBarProps> = ({ socialLinks, com
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">{link.platform}</div>
-                <div className="text-[10px] font-mono text-slate-500 truncate max-w-[140px]">{link.handle}</div>
+                <div className="text-[10px] font-mono text-slate-400 truncate max-w-[140px]">{link.handle}</div>
               </div>
             </a>
           );

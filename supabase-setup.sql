@@ -590,6 +590,17 @@ CREATE TABLE IF NOT EXISTS education_photos (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
 );
 
+-- Album grouping: every photo added in the same "Add Photos" batch shares
+-- one album_id/album_name, so the gallery can show album covers (one card
+-- per album, however many photos it holds) instead of one flat, ever-
+-- growing grid of every individual photo ever uploaded. Nullable + backed
+-- by a fallback in the app layer (rowToPhoto treats a missing album_id as
+-- "this photo is its own single-photo album") so existing rows from before
+-- this migration keep working with no backfill required.
+ALTER TABLE education_photos ADD COLUMN IF NOT EXISTS album_id TEXT;
+ALTER TABLE education_photos ADD COLUMN IF NOT EXISTS album_name TEXT;
+ALTER TABLE education_photos ADD COLUMN IF NOT EXISTS is_cover BOOLEAN DEFAULT false;
+
 ALTER TABLE education_photos ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public can read education_photos" ON education_photos;
@@ -685,6 +696,30 @@ CREATE TRIGGER registrations_rate_limit BEFORE INSERT ON registrations
 DROP TRIGGER IF EXISTS notifications_rate_limit ON notifications;
 CREATE TRIGGER notifications_rate_limit BEFORE INSERT ON notifications
   FOR EACH ROW EXECUTE FUNCTION public.enforce_insert_rate_limit(40);
+
+-- Extended here (ENGINEERING_ASSESSMENT.md, "No rate limiting beyond three
+-- tables"): fact_checks and content_pipeline only allow INSERT for
+-- signed-in staff/admin (see their RLS policies above), not the public --
+-- so this isn't stopping anonymous flooding the way the three triggers
+-- above are. It's a defense-in-depth backstop instead: a compromised staff
+-- session, a leaked service-role-adjacent token, or a client-side bug
+-- looping a create call can't hammer these tables either. Limits are more
+-- generous than the public-facing tables since legitimate staff usage
+-- (e.g. bulk-drafting several fact-checks in a row) is a real workflow.
+--
+-- Note on "careers/scholarship submissions are unprotected" from the same
+-- assessment finding: those don't have their own tables -- career
+-- inquiries insert into `inquiries` (already rate-limited above) and
+-- scholarship applications insert into `notifications` (already
+-- rate-limited above), so both were already covered once traced through to
+-- their actual insert path. No new table needed there.
+DROP TRIGGER IF EXISTS fact_checks_rate_limit ON fact_checks;
+CREATE TRIGGER fact_checks_rate_limit BEFORE INSERT ON fact_checks
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_insert_rate_limit(30);
+
+DROP TRIGGER IF EXISTS content_pipeline_rate_limit ON content_pipeline;
+CREATE TRIGGER content_pipeline_rate_limit BEFORE INSERT ON content_pipeline
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_insert_rate_limit(30);
 
 -- ------------------------------------------------------------
 -- Standard role grants

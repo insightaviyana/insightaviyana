@@ -275,8 +275,9 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">Story Title / Headline *</label>
+              <label htmlFor="cp-title" className="text-xs font-semibold text-slate-300 block mb-1">Story Title / Headline *</label>
               <input
+                id="cp-title"
                 type="text"
                 required
                 placeholder="e.g. 4K Drone View & Rolls-Royce Guest Fleet Unveiling"
@@ -309,8 +310,9 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
 
           {/* Add direct URL option */}
           <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl flex flex-col sm:flex-row items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium shrink-0">Or Add External Media URL:</span>
+            <label htmlFor="cp-media-url" className="text-xs text-slate-400 font-medium shrink-0">Or Add External Media URL:</label>
             <input
+              id="cp-media-url"
               type="text"
               placeholder="Paste direct Image or Video URL (e.g. https://...)"
               value={urlInput}
@@ -350,7 +352,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
                     {item.type === 'video' ? (
                       <SmartVideoPlayer url={item.url} className="w-full h-full object-cover pointer-events-none" />
                     ) : (
-                      <img src={item.url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <img src={item.url} alt="Attached media preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     )}
 
                     <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-mono font-bold text-amber-300 border border-amber-500/40">
@@ -378,7 +380,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
           {/* LARGE CAPTION / NOTES AREA */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+              <label htmlFor="cp-notes" className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
                 <Sparkles size={14} className="text-amber-400" />
                 <span>Rich Caption & Technical Story Notes (Large Area) *</span>
               </label>
@@ -387,6 +389,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
               </span>
             </div>
             <textarea
+              id="cp-notes"
               required
               rows={9}
               placeholder="Type comprehensive caption & story details here... Include 4K drone details, luxury fleet arrivals, VIP quotes, press release statements, and official facts for insight.aviyana.lk..."
@@ -443,7 +446,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
             <div key={item.id} className="bg-slate-900 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all flex flex-col justify-between">
               <div>
                 <div className="relative h-44 rounded-xl overflow-hidden mb-4 bg-slate-950">
-                  <img src={item.mediaPreviewUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <img src={item.mediaPreviewUrl} alt="Content pipeline media preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <div className="absolute top-2 left-2 px-2.5 py-1 rounded bg-slate-950/80 backdrop-blur-sm text-[10px] font-mono text-amber-300">
                     ⏱️ Processed in {item.publishTimeMinutes || 6} min
                   </div>
@@ -541,12 +544,12 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Title</label>
-                <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <label htmlFor="cp-edit-title" className="block text-[11px] font-semibold text-slate-300 mb-1">Title</label>
+                <input id="cp-edit-title" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Notes / Caption</label>
-                <textarea rows={4} value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <label htmlFor="cp-edit-notes" className="block text-[11px] font-semibold text-slate-300 mb-1">Notes / Caption</label>
+                <textarea id="cp-edit-notes" rows={4} value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-800">
                 <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl text-xs">Cancel</button>
@@ -574,6 +577,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
                 This sends <strong className="text-slate-200">"{requestChangesItem.title}"</strong> back to <strong className="text-slate-200">{requestChangesItem.capturedBy}</strong> to edit and resubmit. Explain what needs to change:
               </p>
               <textarea
+                aria-label="Explain what needs to change"
                 rows={4}
                 autoFocus
                 required

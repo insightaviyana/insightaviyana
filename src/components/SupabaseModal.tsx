@@ -56,6 +56,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
 
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
           >
             <X size={18} />

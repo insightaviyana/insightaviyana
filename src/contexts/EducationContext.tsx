@@ -4,7 +4,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { createCourseInDb, updateCourseInDb, deleteCourseFromDb } from '../lib/coursesApi';
 import {
   createEducationMediaInDb, deleteEducationMediaFromDb,
-  createEducationPhotoInDb, deleteEducationPhotoFromDb
+  createEducationPhotoInDb, deleteEducationPhotoFromDb, updateEducationPhotoInDb
 } from '../lib/educationMediaApi';
 import { sendNotificationEmail } from '../lib/emailApi';
 import { useNotifications } from './NotificationContext';
@@ -28,6 +28,7 @@ interface EducationContextValue {
   handleDeleteEducationMedia: (id: string) => void;
   handleAddEducationPhoto: (item: EducationPhoto) => void;
   handleDeleteEducationPhoto: (id: string) => void;
+  handleUpdateEducationPhoto: (id: string, updates: Partial<Pick<EducationPhoto, 'albumId' | 'albumName' | 'isCover' | 'caption'>>) => void;
   handleApplyCourse: (application: {
     applicationCode: string;
     courseTitle: string;
@@ -91,7 +92,7 @@ export function EducationProvider({ children }: { children: ReactNode }) {
 
   const handleAddEducationPhoto = (item: EducationPhoto) => {
     setEducationPhotos(prev => [item, ...prev]);
-    logAction('added', 'Education Photo', item.caption || item.id);
+    logAction('added', 'Education Photo', item.albumName || item.caption || item.id);
     if (isSupabaseConfigured) {
       createEducationPhotoInDb(item).then(err => { if (err) pushDbErrorNotification('Photo upload', err); });
     }
@@ -102,6 +103,17 @@ export function EducationProvider({ children }: { children: ReactNode }) {
     logAction('deleted', 'Education Photo', id);
     if (isSupabaseConfigured) {
       deleteEducationPhotoFromDb(id).then(err => { if (err) pushDbErrorNotification('Deleting photo', err); });
+    }
+  };
+
+  // Generic partial update -- powers both album rename (albumName/albumId
+  // across every photo in an album) and the cover-picker (isCover) in
+  // EducationView.tsx's lightbox, without needing a separate context
+  // method for each.
+  const handleUpdateEducationPhoto = (id: string, updates: Partial<Pick<EducationPhoto, 'albumId' | 'albumName' | 'isCover' | 'caption'>>) => {
+    setEducationPhotos(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
+    if (isSupabaseConfigured) {
+      updateEducationPhotoInDb(id, updates).then(err => { if (err) pushDbErrorNotification('Updating photo', err); });
     }
   };
 
@@ -163,7 +175,7 @@ export function EducationProvider({ children }: { children: ReactNode }) {
     courses, setCourses, educationMedia, setEducationMedia, educationPhotos, setEducationPhotos,
     handleAddCourse, handleEditCourse, handleDeleteCourse,
     handleAddEducationMedia, handleDeleteEducationMedia,
-    handleAddEducationPhoto, handleDeleteEducationPhoto, handleApplyCourse
+    handleAddEducationPhoto, handleDeleteEducationPhoto, handleUpdateEducationPhoto, handleApplyCourse
   };
 
   return <EducationContext.Provider value={value}>{children}</EducationContext.Provider>;

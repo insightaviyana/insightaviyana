@@ -47,6 +47,13 @@
   to = "/.netlify/functions/send-notification-email"
   status = 200
 
+# RSS feed for the newsroom/press-room (see netlify/functions/rss-feed.ts).
+# Standard, discoverable path -- also linked from index.html's <link rel="alternate">.
+[[redirects]]
+  from = "/rss.xml"
+  to = "/.netlify/functions/rss-feed"
+  status = 200
+
 # Single Page App fallback: any other path serves index.html so the
 # React app's own tab-based routing (not URL-based) always loads correctly,
 # including on hard refresh or direct link.

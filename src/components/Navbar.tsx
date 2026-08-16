@@ -25,9 +25,13 @@ import {
   Palette,
   Users,
   TrendingUp,
-  PlusCircle
+  PlusCircle,
+  Newspaper,
+  Rss,
+  Globe
 } from 'lucide-react';
 import { User as UserType, UserRole, AppTheme } from '../types';
+import { Language, LANGUAGE_LABELS, TranslationDict } from '../lib/i18n';
 import aviyanaLogoMark from '../assets/aviyana-logo-mark.png';
 
 interface NavItem {
@@ -47,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'education', label: 'Aviyana Global Campus', icon: GraduationCap },
   { id: 'careers', label: 'Careers', icon: Briefcase },
   { id: 'investment', label: 'Investment', icon: TrendingUp },
+  { id: 'press-kit', label: 'Press Kit', icon: Newspaper },
   { id: 'dashboard', label: 'ORM Command Center', icon: LayoutDashboard, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR'] },
   { id: 'ai-assistant', label: 'Gemini PR AI', icon: Bot, highlight: true, roles: ['IT_LEAD', 'SOCIAL_MANAGER'] },
   { id: 'pipeline', label: 'Content Pipeline', icon: Send, roles: ['IT_LEAD', 'STORY_HUNTER', 'SOCIAL_MANAGER'] },
@@ -72,6 +77,12 @@ interface NavbarProps {
   onOpenProfileModal?: () => void;
   onLogout: () => void;
   unreadCount: number;
+  /** Pending Fact-Check approvals -- shown as a small badge on the
+   * "Fact-Check & FAQ" nav item so staff/admins notice there's something
+   * waiting without having to open the tab first (mirrors the
+   * notification bell's unreadCount badge). Optional -- 0/undefined
+   * renders no badge. */
+  pendingFaqCount?: number;
   onOpenNotifications: () => void;
   audioEnabled: boolean;
   setAudioEnabled: (val: boolean) => void;
@@ -81,6 +92,12 @@ interface NavbarProps {
   /** Opens the Unified Content Editor's kind-selector step (Priority 0,
    * NEXT_SESSION_PLAN.md) — the single "+ Add Content" entry point. */
   onOpenContentEditor?: () => void;
+  /** i18n (src/lib/i18n.tsx) -- all optional so this component still works
+   * if a caller doesn't pass them (falls back to the built-in English
+   * labels in NAV_ITEMS below). */
+  t?: TranslationDict;
+  language?: Language;
+  setLanguage?: (lang: Language) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -93,13 +110,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfileModal,
   onLogout,
   unreadCount,
+  pendingFaqCount = 0,
   onOpenNotifications,
   audioEnabled,
   setAudioEnabled,
   onOpenQuestionModal,
   onOpenThemeModal,
-  onOpenContentEditor
+  onOpenContentEditor,
+  t,
+  language,
+  setLanguage
 }) => {
+  // Translated label overrides for the nav items that have a translation
+  // key -- staff-only tools (Dashboard, Content Pipeline, etc.) intentionally
+  // aren't translated (see i18n.tsx: the translation surface covers
+  // public-facing UI, not internal staff tooling).
+  const navLabelOverrides: Record<string, string> = t ? {
+    'public-hub': t.nav.publicHub,
+    'announcements': t.nav.announcements,
+    'education': t.nav.education,
+    'careers': t.nav.careers,
+    'investment': t.nav.investment,
+    'press-kit': t.nav.pressKit,
+  } : {};
   // A signed-in guest reader: real account, but not staff/admin. Falls back
   // to the id check directly if the caller didn't pass isAnySignedIn, so
   // this component still degrades sensibly if that prop is ever omitted.
@@ -184,6 +217,42 @@ export const Navbar: React.FC<NavbarProps> = ({
             
             {/* Direct Inquiry & Registration Quick Group */}
             <div className="hidden xl:flex items-center space-x-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+              {/* Press Contact -- separate, one-click path for journalists,
+                  distinct from the general "Ask Question" inquiry desk (see
+                  ENGINEERING_ASSESSMENT.md, "No visible media contact"). */}
+              <a
+                href="mailto:insight@aviyana.lk?subject=Press%20Inquiry"
+                className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition-all"
+                title="Press Contact: insight@aviyana.lk"
+              >
+                <Newspaper size={13} className="text-amber-400" />
+                <span>Press Contact</span>
+              </a>
+              <a
+                href="/rss.xml"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Subscribe via RSS"
+                className="flex items-center px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-300 transition-all"
+                title="Subscribe via RSS"
+              >
+                <Rss size={13} />
+              </a>
+              {/* Language switcher (src/lib/i18n.tsx) -- only two languages
+                  today, so a single toggle button is simpler than a
+                  dropdown; switches to a <select> if/when a third language
+                  (e.g. Tamil) is added. */}
+              {language && setLanguage && (
+                <button
+                  onClick={() => setLanguage(language === 'en' ? 'si' : 'en')}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-300 transition-all text-[11px] font-semibold"
+                  title="Switch language"
+                  aria-label={`Switch to ${language === 'en' ? LANGUAGE_LABELS.si : LANGUAGE_LABELS.en}`}
+                >
+                  <Globe size={13} />
+                  <span>{language === 'en' ? 'සිං' : 'EN'}</span>
+                </button>
+              )}
               {onOpenQuestionModal && (
                 <button
                   onClick={onOpenQuestionModal}
@@ -210,8 +279,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Design Theme Selector Button (staff only) */}
-            {isStaffAuthenticated && onOpenThemeModal && (
+            {/* Design Theme Selector Button -- available to every visitor
+                (public, staff, admin alike), not staff-only. Public/guest
+                visitors -- press, investors, prospective guests -- are
+                exactly who'd want the light "Aman/Rosewood"-style theme,
+                not just internal staff. */}
+            {onOpenThemeModal && (
               <button
                 onClick={onOpenThemeModal}
                 className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 hover:text-white text-xs font-semibold transition-all shadow-sm cursor-pointer"
@@ -229,6 +302,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={onOpenNotifications}
                 className="relative p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-amber-300 hover:border-amber-500/40 transition-all cursor-pointer"
                 title="Realtime Alerts & Notifications"
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
               >
                 <Bell size={16} />
                 {unreadCount > 0 && (
@@ -271,6 +345,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={onLogout}
                   className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-red-300 hover:border-red-500/40 transition-all cursor-pointer"
                   title="Log Out to Public View"
+                  aria-label="Log out to public view"
                 >
                   <LogOut size={15} />
                 </button>
@@ -292,6 +367,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -315,12 +392,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Icon size={14} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
-                <span>{item.label}</span>
+                <span>{navLabelOverrides[item.id] || item.label}</span>
+                {item.id === 'faq' && pendingFaqCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-slate-950 shadow-md">
+                    {pendingFaqCount}
+                  </span>
+                )}
               </button>
             );
           })}
           {!isStaffAuthenticated && (
-            <span className="ml-2 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+            <span className="ml-2 flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
               <Sparkles size={11} className="text-amber-500/60" />
               Staff sign in to see management tools
             </span>
@@ -347,6 +429,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={(e) => { e.stopPropagation(); onLogout(); setMobileMenuOpen(false); }}
                 className="ml-auto shrink-0 text-xs px-2.5 py-1 rounded bg-red-950/60 text-red-300 border border-red-500/40 flex items-center gap-1"
+                aria-label="Log out"
               >
                 <LogOut size={12} />
                 <span>Log Out</span>
@@ -377,7 +460,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Icon size={18} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
-                <span>{item.label}</span>
+                <span>{navLabelOverrides[item.id] || item.label}</span>
+                {item.id === 'faq' && pendingFaqCount > 0 && (
+                  <span className="ml-auto flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-slate-950">
+                    {pendingFaqCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -402,13 +490,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Ask Question</span>
               </button>
             )}
-            {isStaffAuthenticated && onOpenThemeModal && (
+            <a
+              href="mailto:insight@aviyana.lk?subject=Press%20Inquiry"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-center space-x-1.5 px-2.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-all col-span-2"
+            >
+              <Newspaper size={14} className="text-amber-400" />
+              <span>Press Contact</span>
+            </a>
+            {onOpenThemeModal && (
               <button
                 onClick={() => { onOpenThemeModal(); setMobileMenuOpen(false); }}
                 className="flex items-center justify-center space-x-1.5 px-2.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 text-xs font-semibold transition-all"
               >
                 <Palette size={14} className="text-amber-400" />
                 <span>Theme</span>
+              </button>
+            )}
+            {language && setLanguage && (
+              <button
+                onClick={() => setLanguage(language === 'en' ? 'si' : 'en')}
+                className="flex items-center justify-center space-x-1.5 px-2.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-all col-span-2"
+                aria-label={`Switch to ${language === 'en' ? LANGUAGE_LABELS.si : LANGUAGE_LABELS.en}`}
+              >
+                <Globe size={14} className="text-amber-400" />
+                <span>{language === 'en' ? LANGUAGE_LABELS.si : LANGUAGE_LABELS.en}</span>
               </button>
             )}
           </div>
@@ -430,7 +536,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`flex flex-col items-center p-1.5 rounded-lg text-[10px] font-medium ${isActive ? 'text-amber-400' : 'text-slate-400'}`}
             >
               <Icon size={18} />
-              <span className="max-w-[60px] truncate">{item.label.split(' ')[0]}</span>
+              <span className="max-w-[60px] truncate">{(navLabelOverrides[item.id] || item.label).split(' ')[0]}</span>
             </button>
           );
         })}

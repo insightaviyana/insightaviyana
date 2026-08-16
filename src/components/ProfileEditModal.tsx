@@ -107,7 +107,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-5 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 border-b border-amber-500/20">
           <h3 className="font-serif font-bold text-lg text-white">Edit Profile</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <X size={18} />
           </button>
         </div>
@@ -121,12 +121,13 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" disabled={uploadingAvatar} />
               </label>
             </div>
-            <p className="text-[10px] text-slate-500 mt-2">Click the camera icon to change your photo</p>
+            <p className="text-[10px] text-slate-400 mt-2">Click the camera icon to change your photo</p>
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 mb-1">Full Name</label>
+            <label htmlFor="pem-name" className="block text-[11px] font-semibold text-slate-300 mb-1">Full Name</label>
             <input
+              id="pem-name"
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={isGuestOrUnauth}
@@ -135,8 +136,9 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 mb-1">Title</label>
+            <label htmlFor="pem-title" className="block text-[11px] font-semibold text-slate-300 mb-1">Title</label>
             <input
+              id="pem-title"
               value={title}
               onChange={e => setTitle(e.target.value)}
               disabled={isGuestOrUnauth}

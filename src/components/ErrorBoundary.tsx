@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { captureException } from '../lib/monitoring';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -38,6 +39,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('ErrorBoundary caught a render error:', error, info.componentStack);
+    captureException(error, { componentStack: info.componentStack, boundary: 'root' });
   }
 
   render() {

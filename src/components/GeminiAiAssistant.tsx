@@ -147,10 +147,11 @@ export const GeminiAiAssistant: React.FC<GeminiAiAssistantProps> = ({ initialPro
 
           <form onSubmit={handleGenerate} className="bg-slate-900 border border-amber-500/20 rounded-2xl p-5 space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">
+              <label htmlFor="gemini-query" className="text-xs font-semibold text-slate-300 block mb-1">
                 Enter Comment / Rumor / Inquiry Text:
               </label>
               <textarea
+                id="gemini-query"
                 rows={5}
                 placeholder="Paste negative review, social comment, or rumor thread here..."
                 value={query}
@@ -160,10 +161,11 @@ export const GeminiAiAssistant: React.FC<GeminiAiAssistantProps> = ({ initialPro
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1">
+              <label htmlFor="gemini-comment-type" className="text-xs font-semibold text-slate-300 block mb-1">
                 Comment Classification Type:
               </label>
               <select
+                id="gemini-comment-type"
                 value={commentType}
                 onChange={(e) => setCommentType(e.target.value)}
                 className="w-full bg-slate-950 border border-amber-500/30 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
@@ -206,10 +208,10 @@ export const GeminiAiAssistant: React.FC<GeminiAiAssistantProps> = ({ initialPro
           )}
 
           {!response && !loading && !error && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
               <Bot size={48} className="mx-auto mb-3 text-slate-700" />
               <h4 className="text-base font-serif font-bold text-slate-400">Gemini PR Assistant Ready</h4>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                 Select a preset or enter a comment on the left to generate an authentic, dignified response for Aviyana Ceylon Resort.
               </p>
             </div>

@@ -181,6 +181,7 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
 
           <button
             onClick={handleReset}
+            aria-label="Close"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X size={18} />
@@ -275,12 +276,13 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
               {/* Name & Contact Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label htmlFor="qsm-name" className="block text-xs font-semibold text-slate-300 mb-1">
                     Your Name <span className="text-amber-400">*</span>
                   </label>
                   <div className="relative">
                     <User size={15} className="absolute left-3 top-2.5 text-slate-500" />
                     <input
+                      id="qsm-name"
                       type="text"
                       required
                       placeholder="e.g. Ruwan Bandaranaike"
@@ -292,12 +294,13 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label htmlFor="qsm-contact" className="block text-xs font-semibold text-slate-300 mb-1">
                     Contact Number (Phone/WhatsApp)
                   </label>
                   <div className="relative">
                     <Phone size={15} className="absolute left-3 top-2.5 text-slate-500" />
                     <input
+                      id="qsm-contact"
                       type="tel"
                       placeholder="e.g. +94 77 123 4567"
                       value={contact}
@@ -311,12 +314,13 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
               {/* Email & Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label htmlFor="qsm-email" className="block text-xs font-semibold text-slate-300 mb-1">
                     Your Email Address <span className="text-amber-400">*</span>
                   </label>
                   <div className="relative">
                     <Mail size={15} className="absolute left-3 top-2.5 text-slate-500" />
                     <input
+                      id="qsm-email"
                       type="email"
                       required
                       placeholder="your.email@domain.com"
@@ -328,10 +332,11 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label htmlFor="qsm-category" className="block text-xs font-semibold text-slate-300 mb-1">
                     Inquiry Category
                   </label>
                   <select
+                    id="qsm-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value as any)}
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
@@ -347,10 +352,11 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
 
               {/* Question Textarea */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label htmlFor="qsm-question" className="block text-xs font-semibold text-slate-300 mb-1">
                   Your Question / Inquiry Details <span className="text-amber-400">*</span>
                 </label>
                 <textarea
+                  id="qsm-question"
                   required
                   rows={4}
                   placeholder="Type your question or press query here. Refers to official clearances, Grand Opening, or community projects..."
@@ -385,10 +391,11 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
                     </label>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">LinkedIn Profile URL</label>
+                    <label htmlFor="qsm-linkedin" className="block text-xs font-semibold text-slate-300 mb-1">LinkedIn Profile URL</label>
                     <div className="relative">
                       <Linkedin size={15} className="absolute left-3 top-2.5 text-slate-500" />
                       <input
+                        id="qsm-linkedin"
                         type="url"
                         placeholder="https://linkedin.com/in/your-profile"
                         value={linkedinUrl}

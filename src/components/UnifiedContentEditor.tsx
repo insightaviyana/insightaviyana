@@ -137,13 +137,13 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'videoUrl', label: 'Video URL (YouTube link recommended)', type: 'text' }
   ],
   faq: [
-    { key: 'rumor', label: 'Rumor / Claim', type: 'textarea', required: true },
-    { key: 'fact', label: 'Verified Fact / Response', type: 'textarea', required: true },
+    { key: 'rumor', label: 'Rumor / Claim', type: 'textarea', rows: 5, required: true },
     { key: 'category', label: 'Category', type: 'select', options: ['Environment', 'Land & Permits', 'Construction', 'Community', 'Service', 'Investment & Financial'], required: true },
     { key: 'status', label: 'Status', type: 'select', options: ['Verified Fact', 'Myth Debunked'], required: true },
+    { key: 'fact', label: 'Verified Fact / Response', type: 'textarea', required: true },
     { key: 'officialSource', label: 'Official Source', type: 'text', required: true },
-    { key: 'verifiedDate', label: 'Verified Date (YYYY-MM-DD)', type: 'text', placeholder: '2026-01-15', required: true },
-    { key: 'documentProof', label: 'Document Proof (optional)', type: 'text' }
+    { key: 'documentProof', label: 'Document Proof (optional)', type: 'text' },
+    { key: 'verifiedDate', label: 'Verified Date (YYYY-MM-DD)', type: 'text', placeholder: '2026-01-15', required: true }
   ],
   article: [
     { key: 'title', label: 'Title', type: 'text', required: true },
@@ -472,7 +472,7 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
         <div className="bg-slate-900 border border-amber-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between p-5 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 border-b border-amber-500/20">
             <h3 className="font-serif font-bold text-lg text-white">What are you adding?</h3>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+            <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
               <X size={18} />
             </button>
           </div>

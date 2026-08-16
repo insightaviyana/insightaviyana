@@ -23,6 +23,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
+          aria-label="Close"
           className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800"
         >
           <X size={18} />
@@ -87,7 +88,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
             <strong>Official Verification Notice:</strong> This document serves as legal proof that all environmental, land, and community protection guidelines have been strictly met without forest reserve encroachment or water disruption.
           </div>
 
-          <div className="pt-2 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+          <div className="pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
             <span>Verified Seal ID: #AV-7S-2026</span>
             <span>Digital Signature: Verified OK</span>
           </div>
