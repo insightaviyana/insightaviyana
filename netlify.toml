@@ -4,6 +4,14 @@
   functions = "netlify/functions"
 
 [build.environment]
+  # Node 22+ has native WebSocket support, which @supabase/supabase-js's
+  # Realtime client needs even for a simple, non-realtime admin action like
+  # deleting a user -- creating a Supabase client at all initializes the
+  # Realtime client internally. On Node 20 (no native WebSocket), any
+  # Netlify Function that calls createClient() fails with "Node.js detected
+  # but native WebSocket not found" the moment it's invoked -- this is what
+  # broke admin-delete-user (and would break admin-create-user identically,
+  # since it does the same createClient() call).
   NODE_VERSION = "22"
 
 # `npm run dev` runs Vite on port 3000 (matches this project's Cloud Run

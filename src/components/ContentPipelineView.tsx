@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { ContentPipelineItem, User } from '../types';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
+import { determineContentPipelineCaptureStatus, determineContentPipelineResubmitStatus } from '../lib/statusTransitions';
 import { uploadContentImage } from '../lib/contentImageUpload';
 
 interface MediaAttachment {
@@ -72,7 +73,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
       ...editingItem,
       title: editTitle,
       notes: editNotes,
-      status: isSelfResubmit ? 'Pending SE Approval' : editingItem.status,
+      status: determineContentPipelineResubmitStatus(editingItem.status, currentUser.accountType),
       revisionNote: isSelfResubmit ? undefined : editingItem.revisionNote
     });
     setEditingItem(null);
@@ -184,7 +185,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
       // and staff (non-admin) should NEVER be able to publish without an
       // admin approving first, regardless of which role they hold. Only a
       // true admin account bypasses the approval queue.
-      status: currentUser.accountType === 'admin' ? 'Published' : 'Pending SE Approval',
+      status: determineContentPipelineCaptureStatus(currentUser.accountType),
       platform: selectedPlatforms as any,
       mediaPreviewUrl: primaryPreview,
       notes: notes || '4K progress footage captured for official subdomain update.',

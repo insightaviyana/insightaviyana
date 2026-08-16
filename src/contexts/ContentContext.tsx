@@ -12,6 +12,7 @@ import { createContentPipelineInDb, updateContentPipelineInDb, deleteContentPipe
 import { useNotifications } from './NotificationContext';
 import { useActivityLog } from './ActivityLogContext';
 import { useAuth } from './AuthContext';
+import { buildArticleFromApprovedDraft } from '../lib/statusTransitions';
 import {
   INITIAL_MILESTONES, INITIAL_FACT_CHECKS, INITIAL_CSR_IMPACT, INITIAL_VOICE_CUTS,
   INITIAL_CONTENT_PIPELINE, INITIAL_ARTICLES
@@ -331,22 +332,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     if (updatedItem) {
       const capturedByName = updatedItem.capturedBy.split(' (')[0];
       const matchedUser = users.find(u => u.name === capturedByName);
-      const newArticle: ArticleItem = {
-        id: `article-from-cp-${updatedItem.id}`,
-        title: updatedItem.title,
-        subtitle: `Captured via Content Pipeline — ${updatedItem.platform.join(', ')}`,
-        category: 'Press Release',
-        author: updatedItem.capturedBy,
-        authorRole: updatedItem.role,
-        authorAvatarUrl: matchedUser?.avatar,
-        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        content: updatedItem.notes,
-        coverImageUrl: updatedItem.mediaPreviewUrl,
-        mediaType: 'image',
-        status: 'Published',
-        viewsCount: 0,
-        tags: updatedItem.platform
-      };
+      const newArticle: ArticleItem = buildArticleFromApprovedDraft(updatedItem, matchedUser?.avatar);
       setArticles(prev => [newArticle, ...prev]);
       if (isSupabaseConfigured) {
         createArticleInDb(newArticle).then(errorMsg => {

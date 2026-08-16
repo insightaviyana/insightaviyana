@@ -3,6 +3,7 @@ import { X, Award, Heart, Volume2, HelpCircle, ChevronLeft, Newspaper, Graduatio
 import { Milestone, CSRImpact, VoiceCut, FactCheckItem, ArticleItem, EducationCourse, EducationMedia, User } from '../types';
 import { QuickCrudModal, QuickFieldConfig } from './QuickCrudModal';
 import { determineFactCheckApprovalStatus } from '../lib/factCheckStatus';
+import { determineNewArticleStatus, determineEditedArticleStatus } from '../lib/statusTransitions';
 
 /**
  * The single "what kind of content is this" entry point requested by the
@@ -373,7 +374,7 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
           tags: tagArray.length > 0 ? tagArray : original.tags,
           // Admin edits keep the current status as-is; a staff edit sends it
           // back for review, matching AnnouncementsView's composer.
-          status: isAdmin ? original.status : 'In Review'
+          status: determineEditedArticleStatus(isAdmin, original.status)
         };
         onEditArticle(updated);
       } else {
@@ -393,7 +394,7 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
           mediaType: values.videoUrl ? 'both' : 'image',
           // Admins publish straight to the public site; everyone else's post
           // goes to "In Review" until an admin approves it.
-          status: isAdmin ? 'Published' : 'In Review',
+          status: determineNewArticleStatus(isAdmin),
           viewsCount: 1,
           featured: true,
           tags: tagArray.length > 0 ? tagArray : ['Official']

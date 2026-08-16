@@ -29,6 +29,7 @@ import {
 import { ArticleItem, User as UserType } from '../types';
 import { SmartVideoPlayer, isYouTubeUrl } from './SmartVideoPlayer';
 import { uploadContentImage } from '../lib/contentImageUpload';
+import { determineNewArticleStatus, determineEditedArticleStatus } from '../lib/statusTransitions';
 
 /** Lets another tab (e.g. the Investment page) ask this view to open its
  * composer already in "new" or "edit" mode, instead of duplicating a
@@ -212,7 +213,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
           // Admin edits keep the current status as-is (admin can already publish
           // directly). A staff edit to any post sends it back for approval, so a
           // "quick tweak" can't be used to slip changes past review.
-          status: isAdmin ? original.status : 'In Review'
+          status: determineEditedArticleStatus(isAdmin, original.status)
         };
         onEditArticle(updated);
         setSelectedArticle(updated);
@@ -244,7 +245,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
       // to "In Review" -- it's saved and visible to the staff team here, but
       // PublicHubView only ever shows status === 'Published', so it stays off
       // the public site until an admin approves it below.
-      status: isAdmin ? 'Published' : 'In Review',
+      status: determineNewArticleStatus(isAdmin),
       viewsCount: 1,
       featured: true,
       tags: tagArray.length > 0 ? tagArray : ['Official']
