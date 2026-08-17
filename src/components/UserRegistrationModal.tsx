@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, UserPlus, CheckCircle2, ShieldCheck, Mail, Phone, User as UserIcon, Sparkles, Building, Award } from 'lucide-react';
 import { UserRegistration } from '../types';
+import { filterNameInput, filterPhoneInput } from '../lib/validation';
 
 interface UserRegistrationModalProps {
   isOpen: boolean;
@@ -153,7 +154,7 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
                     required
                     placeholder="Enter your full name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => setName(filterNameInput(e.target.value))}
                     className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -191,7 +192,7 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
                       required
                       placeholder="+94 77 123 4567"
                       value={contact}
-                      onChange={(e) => setContact(e.target.value)}
+                      onChange={(e) => setContact(filterPhoneInput(e.target.value))}
                       className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     />
                   </div>

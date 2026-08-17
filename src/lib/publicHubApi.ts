@@ -16,6 +16,7 @@ interface MilestoneRow {
   document_name: string | null;
   image_url: string;
   verified_by: string;
+  last_edited_at: string | null;
 }
 
 function milestoneToRow(m: Milestone): MilestoneRow {
@@ -30,7 +31,8 @@ function milestoneToRow(m: Milestone): MilestoneRow {
     document_url: m.documentUrl || null,
     document_name: m.documentName || null,
     image_url: m.imageUrl,
-    verified_by: m.verifiedBy
+    verified_by: m.verifiedBy,
+    last_edited_at: m.lastEditedAt || null
   };
 }
 
@@ -46,7 +48,8 @@ function rowToMilestone(r: MilestoneRow): Milestone {
     documentUrl: r.document_url || undefined,
     documentName: r.document_name || undefined,
     imageUrl: r.image_url,
-    verifiedBy: r.verified_by
+    verifiedBy: r.verified_by,
+    lastEditedAt: r.last_edited_at || undefined
   };
 }
 
@@ -261,6 +264,7 @@ interface FactCheckRow {
   verified_date: string;
   approval_status: string;
   created_by: string | null;
+  last_edited_at: string | null;
 }
 
 function factCheckToRow(f: FactCheckItem): FactCheckRow {
@@ -274,7 +278,8 @@ function factCheckToRow(f: FactCheckItem): FactCheckRow {
     status: f.status,
     verified_date: f.verifiedDate,
     approval_status: f.approvalStatus,
-    created_by: f.createdBy || null
+    created_by: f.createdBy || null,
+    last_edited_at: f.lastEditedAt || null
   };
 }
 
@@ -289,7 +294,8 @@ function rowToFactCheck(r: FactCheckRow): FactCheckItem {
     status: r.status as FactCheckItem['status'],
     verifiedDate: r.verified_date,
     approvalStatus: (r.approval_status as FactCheckItem['approvalStatus']) || 'Published',
-    createdBy: r.created_by || undefined
+    createdBy: r.created_by || undefined,
+    lastEditedAt: r.last_edited_at || undefined
   };
 }
 

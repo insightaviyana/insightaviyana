@@ -28,7 +28,8 @@ import {
   Newspaper,
   Rss,
   Globe,
-  BadgeCheck
+  BadgeCheck,
+  Handshake
 } from 'lucide-react';
 import { User as UserType, UserRole, AppTheme } from '../types';
 import { Language, LANGUAGE_LABELS, TranslationDict } from '../lib/i18n';
@@ -45,13 +46,19 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
+// Requested public-facing order: Public Hub / Announcements / Global Campus /
+// Investment / Careers / Fact-Check Portal / Press Kit. Staff-only tools keep
+// their own fixed order further down (they get a visual divider + are
+// re-sorted to the front of the mobile bottom bar regardless -- see
+// staffToolItems below).
 const NAV_ITEMS: NavItem[] = [
   { id: 'public-hub', label: 'Public Hub', icon: ShieldCheck },
-  { id: 'fact-check-portal', label: 'Fact-Check Portal', icon: BadgeCheck },
   { id: 'announcements', label: 'Announcements', icon: Megaphone },
   { id: 'education', label: 'Aviyana Global Campus', icon: GraduationCap },
-  { id: 'careers', label: 'Careers', icon: Briefcase },
   { id: 'investment', label: 'Investment', icon: TrendingUp },
+  { id: 'sponsored-events', label: 'Sponsored Events', icon: Handshake },
+  { id: 'careers', label: 'Careers', icon: Briefcase },
+  { id: 'fact-check-portal', label: 'Fact-Check Portal', icon: BadgeCheck },
   { id: 'press-kit', label: 'Press Kit', icon: Newspaper },
   { id: 'dashboard', label: 'ORM Command Center', icon: LayoutDashboard, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR'] },
   { id: 'ai-assistant', label: 'Gemini PR AI', icon: Bot, highlight: true, roles: ['IT_LEAD', 'SOCIAL_MANAGER'] },
@@ -94,6 +101,9 @@ interface NavbarProps {
   /** Opens the Unified Content Editor's kind-selector step (Priority 0,
    * NEXT_SESSION_PLAN.md) — the single "+ Add Content" entry point. */
   onOpenContentEditor?: () => void;
+  /** Opens the sitewide GlobalSearchModal. Optional so this component still
+   * works if a caller doesn't pass it (no search button renders). */
+  onOpenSearch?: () => void;
   /** i18n (src/lib/i18n.tsx) -- all optional so this component still works
    * if a caller doesn't pass them (falls back to the built-in English
    * labels in NAV_ITEMS below). */
@@ -119,6 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenQuestionModal,
   onOpenThemeModal,
   onOpenContentEditor,
+  onOpenSearch,
   t,
   language,
   setLanguage
@@ -152,24 +163,27 @@ export const Navbar: React.FC<NavbarProps> = ({
     return isStaffAuthenticated && (isAdmin || item.roles.includes(currentUser.role));
   });
 
-  // Mobile fixed bottom bar shows up to 5 items only (space-limited).
+  // Mobile fixed bottom bar -- previously hard-capped at 5 items (space-
+  // limited real estate), which meant every new public tab silently pushed
+  // an existing one out of quick-access with no way to reach it except the
+  // hamburger menu (see QA_AUDIT_REPORT.md: adding Sponsored Events as an
+  // 8th public tab pushed Careers/Fact-Check Portal/Press Kit out for a
+  // logged-out visitor). Fixed properly instead of re-capping at a new
+  // magic number that will just repeat the same problem the next time a
+  // tab is added: the bar now shows the FULL list and scrolls horizontally
+  // (see the `overflow-x-auto` + `no-scrollbar` on the container below) --
+  // every visible tab stays exactly one tap away, nothing is ever silently
+  // dropped from quick-access again.
   //
-  // BUG FIX: this used to just take visibleNavItems.slice(0, 5) -- the first
-  // 5 items in NAV_ITEMS' fixed order. For any signed-in staff/admin, that
-  // order is Public Hub, Announcements, Education, Investment, Dashboard --
-  // meaning the bottom bar was always dominated by public-facing content
-  // tabs, and EVERY staff-specific tool (Content Pipeline, SERP, Inquiry
-  // Desk, Fact-Check & FAQ, User Management, Activity Log) never appeared in
-  // quick-access at all, staff had to open the full hamburger menu every
-  // single time to reach their actual daily-use tools. For a signed-in
-  // staff/admin, prioritize their role-specific tools first; the public
-  // content tabs are just as reachable via the hamburger menu for them,
-  // same as everything else that doesn't fit in 5 slots.
+  // Ordering: for a signed-in staff/admin, role-specific tools come first
+  // (their daily-use tools shouldn't require scrolling past every public
+  // content tab to reach); the public content tabs are just as reachable
+  // by scrolling right, same as everything else in the bar now.
   const staffToolItems = visibleNavItems.filter(item => item.roles || item.adminOnly);
   const publicContentItems = visibleNavItems.filter(item => !item.roles && !item.adminOnly);
   const bottomBarItems = isStaffAuthenticated
-    ? [...staffToolItems, ...publicContentItems].slice(0, 5)
-    : visibleNavItems.slice(0, 5);
+    ? [...staffToolItems, ...publicContentItems]
+    : visibleNavItems;
 
   return (
     <header id="main-header" className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-amber-500/20 text-slate-100 shadow-xl">
@@ -295,6 +309,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Palette size={15} className="text-amber-400" />
                 <span className="hidden md:inline font-mono text-[10px] uppercase tracking-wider">Theme</span>
+              </button>
+            )}
+
+            {/* Sitewide Search -- searches articles, milestones,
+                fact-checks, and courses at once (see GlobalSearchModal.tsx).
+                Always visible (not staff-only, not hidden behind the xl
+                Quick Group) since this is exactly the kind of thing a
+                first-time visitor or journalist needs immediately. */}
+            {onOpenSearch && (
+              <button
+                onClick={onOpenSearch}
+                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-amber-300 hover:border-amber-500/40 transition-all cursor-pointer"
+                title="Search the site"
+                aria-label="Search the site"
+              >
+                <Search size={16} />
               </button>
             )}
 
@@ -492,6 +522,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Quick Actions (mirrors desktop-only buttons) */}
           <div className="pt-2 mt-2 border-t border-slate-800 grid grid-cols-2 gap-2">
+            {onOpenSearch && (
+              <button
+                onClick={() => { onOpenSearch(); setMobileMenuOpen(false); }}
+                className="flex items-center justify-center space-x-1.5 px-2.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-all col-span-2"
+              >
+                <Search size={14} className="text-amber-400" />
+                <span>Search the Site</span>
+              </button>
+            )}
             {isStaffAuthenticated && onOpenContentEditor && (
               <button
                 onClick={() => { onOpenContentEditor(); setMobileMenuOpen(false); }}
@@ -541,9 +580,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       )}
 
-      {/* Mobile Fixed Bottom Bar for fast tab switching - reflects same visible/role-filtered items */}
+      {/* Mobile Fixed Bottom Bar for fast tab switching - reflects same
+          visible/role-filtered items. Horizontally scrollable (see
+          bottomBarItems above) rather than capped/truncated -- every
+          visible tab is reachable by a tap plus, if needed, a swipe, never
+          silently hidden. `snap-x` gives each icon a resting position so a
+          swipe doesn't leave one awkwardly half-cut-off at the edge. */}
       <div
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-amber-500/20 px-1 pt-1.5 flex justify-around items-center"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-amber-500/20 px-1 pt-1.5 flex items-center gap-0.5 overflow-x-auto no-scrollbar snap-x snap-mandatory"
         style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}
       >
         {bottomBarItems.map((item) => {
@@ -553,7 +597,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center p-1.5 rounded-lg text-[10px] font-medium ${isActive ? 'text-amber-400' : 'text-slate-400'}`}
+              className={`shrink-0 snap-center flex flex-col items-center min-w-[58px] px-1.5 p-1.5 rounded-lg text-[10px] font-medium ${isActive ? 'text-amber-400' : 'text-slate-400'}`}
             >
               <Icon size={18} />
               <span className="max-w-[60px] truncate">{(navLabelOverrides[item.id] || item.label).split(' ')[0]}</span>

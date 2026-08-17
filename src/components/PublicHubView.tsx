@@ -36,6 +36,10 @@ import {
 import { Milestone, FactCheckItem, CSRImpact, VoiceCut, SocialLink, ArticleItem } from '../types';
 import { TranslationDict } from '../lib/i18n';
 import { SiteSettingsMap, getSetting } from '../lib/siteSettingsApi';
+import { isPubliclyVisible } from '../lib/contentVisibility';
+import { UpdatedBadge } from './UpdatedBadge';
+import { RelatedArticles } from './RelatedArticles';
+import { useArticleMeta } from '../lib/useArticleMeta';
 import { NewsletterSubscribe } from './NewsletterSubscribe';
 import { SocialLinksBar } from './SocialLinksBar';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
@@ -67,6 +71,15 @@ interface ArticleModalData {
   speakerRole?: string;
   metricValue?: string;
   metricLabel?: string;
+  /** Which content type this modal is showing -- 'article' unlocks the
+   * view-count bump and "Related Stories" section below, since those only
+   * make sense for a real ArticleItem (milestones/CSR/voice cuts don't
+   * have a comparable "more like this" pool). Undefined for the older
+   * call sites that don't need it. */
+  sourceType?: 'article' | 'milestone' | 'csr' | 'voiceCut';
+  /** "Updated on <date>" trail -- see UpdatedBadge.tsx. Populated for both
+   * articles and milestones (both have lastEditedAt). */
+  lastEditedAt?: string;
 }
 
 interface PublicHubViewProps {
@@ -101,6 +114,11 @@ interface PublicHubViewProps {
    * SITE_SETTING_DEFAULTS if not passed. */
   siteSettings?: SiteSettingsMap;
   onSaveSiteSetting?: (key: string, value: string) => void;
+  /** Bumps an article's real view count -- see ContentContext's
+   * handleIncrementArticleViews. Called once when openArticleModal opens
+   * a real article (not for milestones/CSR/voice cuts, which don't have
+   * a view count). */
+  onArticleViewed?: (articleId: string) => void;
 }
 
 // Milestone status -> badge styling. Previously every status (Verified,
@@ -150,7 +168,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
   t,
   onNavigateTab,
   siteSettings = {},
-  onSaveSiteSetting
+  onSaveSiteSetting,
+  onArticleViewed
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   // Pagination for the unified news feed below -- previously every
@@ -209,7 +228,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     | { source: 'milestone'; sortDate: string; data: Milestone }
     | { source: 'article'; sortDate: string; data: ArticleItem };
 
-  const publishedArticles = articles.filter(a => a.status === 'Published');
+  const publishedArticles = articles.filter(a => isPubliclyVisible(a));
 
   const combinedFeed: NewsFeedItem[] = [
     ...milestones.map((m): NewsFeedItem => ({ source: 'milestone', sortDate: m.date, data: m })),
@@ -242,8 +261,11 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
       imageUrl: article.coverImageUrl,
       videoUrl: article.videoUrl,
       description: article.subtitle,
-      fullBody: `${article.content}\n\nPublished by: ${article.author} (${article.authorRole})\n\nThis announcement is an official statement from Aviyana Ceylon Resort, published via the insight.aviyana.lk source-of-truth portal.`
+      fullBody: `${article.content}\n\nPublished by: ${article.author} (${article.authorRole})\n\nThis announcement is an official statement from Aviyana Ceylon Resort, published via the insight.aviyana.lk source-of-truth portal.`,
+      sourceType: 'article',
+      lastEditedAt: article.lastEditedAt
     });
+    onArticleViewed?.(article.id);
   };
 
   const openMilestoneModal = (ms: Milestone) => {
@@ -257,7 +279,9 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
       description: ms.description,
       documentName: ms.documentName,
       verifiedBy: ms.verifiedBy,
-      fullBody: ms.context ? `${ms.description}\n\n${ms.context}` : ms.description
+      fullBody: ms.context ? `${ms.description}\n\n${ms.context}` : ms.description,
+      sourceType: 'milestone',
+      lastEditedAt: ms.lastEditedAt
     });
   };
 
@@ -275,7 +299,16 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     const params = new URLSearchParams(window.location.search);
     const itemId = params.get('item');
     if (!itemId) return;
-    const article = articles.find(a => a.id === itemId);
+    // Only auto-opens an article that's actually publicly visible right
+    // now (Published, and not still under a future scheduled_publish_at
+    // embargo -- see contentVisibility.ts) -- UNLESS the person opening the
+    // link is signed-in staff, who legitimately need to preview a Draft/
+    // In-Review/still-embargoed post before it goes live. Without the
+    // visibility check at all, a guessed or leaked `?item=<id>` URL would
+    // open ANY article's full content in the public UI regardless of
+    // status -- defeating both "not published yet" and the scheduled-
+    // publishing feature entirely for a logged-out visitor.
+    const article = articles.find(a => a.id === itemId && (isPubliclyVisible(a) || isStaffAuthenticated));
     if (article) { openArticleModal(article); sharedLinkHandled.current = true; return; }
     const milestone = milestones.find(m => m.id === itemId);
     if (milestone) { openMilestoneModal(milestone); sharedLinkHandled.current = true; return; }
@@ -312,6 +345,20 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
   // separate here since this cover image isn't rendered through that
   // shared component.
   const [coverImageLightbox, setCoverImageLightbox] = useState(false);
+  // Client-side title/meta update -- helps a real browser tab and
+  // JS-executing crawlers (Googlebot). Does NOT fix social-share preview
+  // cards on its own -- see useArticleMeta.ts's comment and
+  // handleCopyLink's /share link above for that half of the fix.
+  useArticleMeta(
+    selectedArticleModal && (selectedArticleModal.sourceType === 'article' || selectedArticleModal.sourceType === 'milestone') && selectedArticleModal.id
+      ? {
+          title: selectedArticleModal.title,
+          description: selectedArticleModal.description,
+          image: selectedArticleModal.imageUrl,
+          path: `/?tab=public-hub&item=${encodeURIComponent(selectedArticleModal.id)}`
+        }
+      : null
+  );
   const handleCopyLink = async () => {
     if (!selectedArticleModal?.id) {
       // No id on this item (a rare edge case -- see the ArticleModalData
@@ -320,7 +367,18 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
       setTimeout(() => setCopyLinkError(false), 3000);
       return;
     }
-    const url = `${window.location.origin}${window.location.pathname}?tab=public-hub&item=${encodeURIComponent(selectedArticleModal.id)}`;
+    // For an article or milestone, share the /share endpoint (see
+    // netlify/functions/share.ts) so the link gets a REAL, correct social
+    // preview card on Facebook/WhatsApp/Twitter/LinkedIn/Slack (those
+    // platforms' crawlers don't execute JS, so a raw SPA URL can only ever
+    // show index.html's generic homepage preview -- see that function's
+    // comment for the full explanation). Fact-checks/CSR/voice cuts don't
+    // have a /share entry yet (same smaller, documented gap as their
+    // auto-open-on-load support) -- those still get the plain deep link,
+    // which opens correctly, just without a rich preview if shared.
+    const url = selectedArticleModal.sourceType === 'article' || selectedArticleModal.sourceType === 'milestone'
+      ? `${window.location.origin}/share?type=${selectedArticleModal.sourceType}&id=${encodeURIComponent(selectedArticleModal.id)}`
+      : `${window.location.origin}${window.location.pathname}?tab=public-hub&item=${encodeURIComponent(selectedArticleModal.id)}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedLink(true);
@@ -1220,6 +1278,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                     <span>{selectedArticleModal.status}</span>
                   </span>
                 )}
+                <UpdatedBadge lastEditedAt={selectedArticleModal.lastEditedAt} />
               </div>
 
               <button
@@ -1298,6 +1357,23 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               content={selectedArticleModal.fullBody || selectedArticleModal.description}
               className="space-y-4 text-sm text-slate-200 leading-relaxed font-sans"
             />
+
+            {/* Related Stories -- only for a real article (not a milestone/
+                CSR/voice-cut modal, which don't have a comparable "more
+                like this" pool). Looks the current article back up from
+                the full `articles` prop since ArticleModalData itself
+                doesn't retain the full ArticleItem. */}
+            {selectedArticleModal.sourceType === 'article' && selectedArticleModal.id && (() => {
+              const currentArticle = articles.find(a => a.id === selectedArticleModal.id);
+              if (!currentArticle) return null;
+              return (
+                <RelatedArticles
+                  articles={articles}
+                  current={currentArticle}
+                  onSelect={(article) => openArticleModal(article)}
+                />
+              );
+            })()}
 
             {/* Verification Footer & Actions */}
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">

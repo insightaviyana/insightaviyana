@@ -4,6 +4,7 @@ import { Milestone, CSRImpact, VoiceCut, FactCheckItem, ArticleItem, EducationCo
 import { QuickCrudModal, QuickFieldConfig } from './QuickCrudModal';
 import { determineFactCheckApprovalStatus } from '../lib/factCheckStatus';
 import { determineNewArticleStatus, determineEditedArticleStatus } from '../lib/statusTransitions';
+import { filterNameInput } from '../lib/validation';
 
 /**
  * The single "what kind of content is this" entry point requested by the
@@ -101,6 +102,36 @@ const IMAGE_FOLDERS: Record<UnifiedContentKind, string> = {
 };
 
 const DEFAULT_ARTICLE_COVER = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1000&auto=format&fit=crop&q=80';
+
+// --- Scheduled publish date helpers -------------------------------------
+// The "Schedule For Later" field is a plain free-text input (see
+// QuickFieldConfig -- there's no dedicated datetime-local field type),
+// matching the same "YYYY-MM-DD" free-text convention already used for
+// verifiedDate/date fields elsewhere in this file. These two helpers
+// convert between that human-typed text and the ISO string actually stored
+// on ArticleItem.scheduledPublishAt.
+
+/** Human-typed text -> ISO string, or undefined if blank/unparseable.
+ * Deliberately permissive (relies on `new Date()`'s own parsing) rather
+ * than enforcing one exact format -- "2026-08-20 09:00", "2026-08-20",
+ * and "Aug 20 2026 9am" all parse fine, and an unparseable value just
+ * means "no schedule" rather than a hard validation error blocking save. */
+function parseScheduleInput(value?: string): string | undefined {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return undefined;
+  const parsed = new Date(trimmed);
+  if (isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString();
+}
+
+/** ISO string -> human-readable text for re-populating the field when
+ * editing an article that already has a schedule set. */
+function formatForScheduleInput(iso: string): string {
+  const parsed = new Date(iso);
+  if (isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
+}
+
 const DEFAULT_MEDIA_THUMBNAIL = 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80';
 
 const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
@@ -112,7 +143,7 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'description', label: 'Description', type: 'textarea', rows: 5, required: true },
     { key: 'context', label: 'Additional Context (optional, shown in the full article view)', type: 'textarea', rows: 5, placeholder: 'Write any background, verification details, or extra context for this specific post — this is NOT auto-generated.' },
     { key: 'imageUrl', label: 'Cover Image', type: 'image', required: true },
-    { key: 'verifiedBy', label: 'Verified By', type: 'text', required: true },
+    { key: 'verifiedBy', label: 'Verified By', type: 'text', required: true, filter: filterNameInput },
     { key: 'documentName', label: 'Document Name (optional)', type: 'text' }
   ],
   csr: [
@@ -127,7 +158,7 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'videoUrl', label: 'Video URL (YouTube link — the guest video clip)', type: 'text' }
   ],
   voicecut: [
-    { key: 'speakerName', label: 'Speaker Name', type: 'text', required: true },
+    { key: 'speakerName', label: 'Speaker Name', type: 'text', required: true, filter: filterNameInput },
     { key: 'speakerRole', label: 'Speaker Role', type: 'text', required: true },
     { key: 'title', label: 'Title', type: 'text', required: true },
     { key: 'duration', label: 'Duration (e.g. "3:45")', type: 'text', required: true },
@@ -157,7 +188,12 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
       placeholder: 'Write full article text here. Use the buttons above to attach photos or videos directly inside the article body text...',
       helperText: 'Photos uploaded here are saved permanently. Videos are preview-only in this tab — use a YouTube link for a video that survives a page reload.'
     },
-    { key: 'tags', label: 'Tags (comma separated)', type: 'text', placeholder: 'Grand Opening, CEA Clearance, Hospitality Academy' }
+    { key: 'tags', label: 'Tags (comma separated)', type: 'text', placeholder: 'Grand Opening, CEA Clearance, Hospitality Academy' },
+    {
+      key: 'scheduledPublishAt', label: 'Schedule For Later (optional)', type: 'text',
+      placeholder: 'e.g. 2026-08-20 09:00 — leave blank to publish immediately',
+      helperText: 'Only applies once this post is Published (admin posts, or a staff post after admin approval) -- it stays hidden from the public site until this exact date/time, even though staff can still see and review it right away.'
+    }
   ],
   course: [
     { key: 'title', label: 'Course Title', type: 'text', required: true },
@@ -264,7 +300,7 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
     if (kind === 'article') {
       const a = articles.find(x => x.id === id);
       if (!a) return {};
-      return { title: a.title, subtitle: a.subtitle, category: a.category, coverImageUrl: a.coverImageUrl || DEFAULT_ARTICLE_COVER, videoUrl: a.videoUrl || '', videoCaption: a.videoCaption || '', content: a.content, tags: a.tags.join(', ') };
+      return { title: a.title, subtitle: a.subtitle, category: a.category, coverImageUrl: a.coverImageUrl || DEFAULT_ARTICLE_COVER, videoUrl: a.videoUrl || '', videoCaption: a.videoCaption || '', content: a.content, tags: a.tags.join(', '), scheduledPublishAt: a.scheduledPublishAt ? formatForScheduleInput(a.scheduledPublishAt) : '' };
     }
     if (kind === 'course') {
       const c = courses.find(x => x.id === id);
@@ -358,6 +394,7 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
       }
     } else if (kind === 'article') {
       const tagArray = values.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const scheduledPublishAt = parseScheduleInput(values.scheduledPublishAt);
       if (isEditing) {
         const original = articles.find(a => a.id === id);
         if (!original) return;
@@ -374,7 +411,8 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
           tags: tagArray.length > 0 ? tagArray : original.tags,
           // Admin edits keep the current status as-is; a staff edit sends it
           // back for review, matching AnnouncementsView's composer.
-          status: determineEditedArticleStatus(isAdmin, original.status)
+          status: determineEditedArticleStatus(isAdmin, original.status),
+          scheduledPublishAt
         };
         onEditArticle(updated);
       } else {
@@ -397,7 +435,8 @@ export const UnifiedContentEditor: React.FC<UnifiedContentEditorProps> = ({
           status: determineNewArticleStatus(isAdmin),
           viewsCount: 1,
           featured: true,
-          tags: tagArray.length > 0 ? tagArray : ['Official']
+          tags: tagArray.length > 0 ? tagArray : ['Official'],
+          scheduledPublishAt
         };
         onAddArticle(created);
       }

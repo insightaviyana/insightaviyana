@@ -23,6 +23,8 @@ interface AnnouncementRow {
   views_count: number;
   featured: boolean;
   tags: string[] | null;
+  last_edited_at: string | null;
+  scheduled_publish_at: string | null;
 }
 
 function toRow(article: ArticleItem): AnnouncementRow {
@@ -43,7 +45,9 @@ function toRow(article: ArticleItem): AnnouncementRow {
     status: article.status,
     views_count: article.viewsCount,
     featured: Boolean(article.featured),
-    tags: article.tags
+    tags: article.tags,
+    last_edited_at: article.lastEditedAt || null,
+    scheduled_publish_at: article.scheduledPublishAt || null
   };
 }
 
@@ -65,7 +69,9 @@ function fromRow(row: AnnouncementRow): ArticleItem {
     status: row.status as ArticleItem['status'],
     viewsCount: row.views_count,
     featured: row.featured,
-    tags: row.tags || []
+    tags: row.tags || [],
+    lastEditedAt: row.last_edited_at || undefined,
+    scheduledPublishAt: row.scheduled_publish_at || undefined
   };
 }
 
@@ -164,4 +170,22 @@ export async function deleteArticleFromDb(articleId: string): Promise<string | n
     return resolveAmbiguousDeleteResult(supabase, 'announcements', 'id', articleId, 'article');
   }
   return null;
+}
+
+/**
+ * Bumps an article's real view count by exactly 1 via the
+ * `increment_article_views` Postgres function (see the editorial_upgrades
+ * migration) -- a single atomic UPDATE, safe under concurrent readers,
+ * rather than a client-side "read views_count, write views_count + 1"
+ * which would both need a public write grant on the whole row and be racy.
+ * Fire-and-forget from the UI's perspective: a failed/not-configured call
+ * just means the count doesn't tick up this time, never a blocking error
+ * for the person actually reading the article.
+ */
+export async function incrementArticleViews(articleId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const { error } = await supabase.rpc('increment_article_views', { article_id: articleId });
+  if (error) console.error('incrementArticleViews:', error.message);
 }

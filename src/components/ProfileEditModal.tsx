@@ -3,6 +3,7 @@ import { X, Save, Camera, Loader2, Newspaper, Send } from 'lucide-react';
 import { User, ArticleItem, ContentPipelineItem } from '../types';
 import { updateProfileFields, uploadAvatar } from '../lib/supabaseAuth';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { filterNameInput } from '../lib/validation';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -129,7 +130,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             <input
               id="pem-name"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => setName(filterNameInput(e.target.value))}
               disabled={isGuestOrUnauth}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white disabled:opacity-50"
             />

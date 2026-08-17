@@ -31,6 +31,19 @@
   background: rgba(245, 158, 11, 0.6);
 }
 
+/* Hides the scrollbar on an intentionally-scrollable element (e.g. the
+   mobile bottom nav bar in Navbar.tsx) while keeping it fully scrollable --
+   a persistently visible thin scrollbar under a row of 5px-tall icon
+   labels looks like a rendering glitch, not an affordance, on a bottom nav
+   this size. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, newer Edge */
+}
+
 /* --- THEMES: Dark (default) and Light only --- */
 
 /* Dark -- the original theme, unchanged. */

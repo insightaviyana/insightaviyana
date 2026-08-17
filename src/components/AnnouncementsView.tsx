@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
   PenTool, 
@@ -31,6 +31,9 @@ import { SmartVideoPlayer, isYouTubeUrl } from './SmartVideoPlayer';
 import { ArticleContentRenderer } from './ArticleContentRenderer';
 import { uploadContentImage } from '../lib/contentImageUpload';
 import { determineNewArticleStatus, determineEditedArticleStatus } from '../lib/statusTransitions';
+import { isScheduledForFuture } from '../lib/contentVisibility';
+import { UpdatedBadge } from './UpdatedBadge';
+import { RelatedArticles } from './RelatedArticles';
 
 /** Lets another tab (e.g. the Investment page) ask this view to open its
  * composer already in "new" or "edit" mode, instead of duplicating a
@@ -48,6 +51,10 @@ interface AnnouncementsViewProps {
   onAddArticle: (article: ArticleItem) => void;
   onEditArticle?: (article: ArticleItem) => void;
   onDeleteArticle?: (articleId: string) => void;
+  /** Bumps an article's real view count -- see ContentContext's
+   * handleIncrementArticleViews. Called once per open (the article-select
+   * click handler and "Related Stories" click handler below). */
+  onArticleViewed?: (articleId: string) => void;
   onOpenQuestionModal: () => void;
   onOpenAuthModal?: () => void;
   externalIntent?: ArticleComposerIntent | null;
@@ -67,6 +74,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
   onAddArticle,
   onEditArticle,
   onDeleteArticle,
+  onArticleViewed,
   onOpenQuestionModal,
   onOpenAuthModal,
   externalIntent,
@@ -76,6 +84,13 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(articles[0] || null);
+  // Mobile only: the reader column sits *below* the article list in the
+  // stacked single-column layout (the lg:grid-cols-12 split only appears
+  // side-by-side from the lg breakpoint up), so picking an article from the
+  // list left the reader rendered off-screen with no visual cue that
+  // anything happened until the visitor scrolled down manually. See the
+  // scrollIntoView call in the article-card onClick below.
+  const selectedArticleRef = useRef<HTMLDivElement | null>(null);
   const [writerModalOpen, setWriterModalOpen] = useState<boolean>(false);
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
   // Any signed-in staff member can publish/edit/delete announcements (small trusted ORM team).
@@ -106,9 +121,11 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
 
   const filteredArticles = articles.filter(art => {
     const matchesCategory = selectedCategory === 'All' || art.category === selectedCategory;
-    const matchesSearch = art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          art.subtitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          art.content.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = art.title.toLowerCase().includes(q) ||
+                          art.subtitle.toLowerCase().includes(q) ||
+                          art.content.toLowerCase().includes(q) ||
+                          art.tags.some(tag => tag.toLowerCase().includes(q));
     return matchesCategory && matchesSearch;
   });
 
@@ -362,11 +379,11 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
         </div>
 
         {/* Video Screen Box */}
-        <div className="relative rounded-2xl overflow-hidden bg-black border border-slate-800 aspect-video max-h-[480px] shadow-2xl flex items-center justify-center group">
+        <div className="relative rounded-2xl overflow-hidden bg-black border border-slate-800 aspect-video max-h-[480px] shadow-2xl flex items-center justify-center group mx-auto">
           {activeVideoUrl ? (
             <SmartVideoPlayer
               url={activeVideoUrl}
-              className="w-full h-full object-contain"
+              className="max-w-full max-h-full w-full h-full object-contain mx-auto block"
               poster={selectedArticle?.coverImageUrl}
               title={activeVideoTitle}
             />
@@ -431,6 +448,22 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                       setActiveVideoUrl(art.videoUrl);
                       setActiveVideoTitle(art.title);
                     }
+                    // Real view count -- see incrementArticleViews. Fire
+                    // once per open (this handler only runs on an actual
+                    // click, not a re-render); ContentContext's handler
+                    // updates the shared `articles` state (and Supabase)
+                    // so the number reflects immediately here and anywhere
+                    // else the same article is shown.
+                    onArticleViewed?.(art.id);
+                    // On mobile (stacked layout, <lg) the reader panel is
+                    // below the fold -- scroll it into view so picking an
+                    // article visibly does something. Desktop's side-by-side
+                    // layout already shows the reader, so skip the jump there.
+                    if (window.innerWidth < 1024) {
+                      requestAnimationFrame(() => {
+                        selectedArticleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      });
+                    }
                   }}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
@@ -451,6 +484,11 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                   {art.status !== 'Published' && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 border border-amber-500/40 mb-1.5">
                       ⏳ {art.status === 'In Review' ? 'Pending Admin Approval' : art.status}
+                    </span>
+                  )}
+                  {isScheduledForFuture(art) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-sky-950/80 text-sky-300 border border-sky-500/40 mb-1.5 ml-1">
+                      🕒 Scheduled
                     </span>
                   )}
 
@@ -531,7 +569,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
         </div>
 
         {/* Selected Article Full View (7 Cols) */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-7" ref={selectedArticleRef}>
           {selectedArticle ? (
             <div id="printable-article" className="bg-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-6">
               
@@ -556,6 +594,12 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                         ⏳ {selectedArticle.status === 'In Review' ? 'Pending Admin Approval' : selectedArticle.status}
                       </span>
                     )}
+                    {isScheduledForFuture(selectedArticle) && (
+                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-500/50">
+                        🕒 Scheduled for {new Date(selectedArticle.scheduledPublishAt!).toLocaleString()}
+                      </span>
+                    )}
+                    <UpdatedBadge lastEditedAt={selectedArticle.lastEditedAt} />
                   </div>
                   <h2 className="text-2xl font-serif font-bold text-white">{selectedArticle.title}</h2>
                 </div>
@@ -670,15 +714,38 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                 </div>
               )}
 
-              {/* Tags */}
+              {/* Tags -- clickable: sets the search box to that tag so the
+                  article list filters to everything sharing it (see
+                  filteredArticles' matchesSearch, which now checks tags
+                  too). Previously purely decorative. */}
               <div className="flex flex-wrap items-center gap-1.5 pt-2">
                 <span className="text-xs text-slate-400 font-mono mr-1">Tags:</span>
                 {selectedArticle.tags.map((tag) => (
-                  <span key={tag} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-amber-300/90 border border-slate-800">
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setSearchQuery(tag)}
+                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-amber-300/90 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-900 transition-colors cursor-pointer"
+                    title={`Show articles tagged "${tag}"`}
+                  >
                     #{tag}
-                  </span>
+                  </button>
                 ))}
               </div>
+
+              <RelatedArticles
+                articles={articles}
+                current={selectedArticle}
+                onSelect={(article) => {
+                  setSelectedArticle(article);
+                  if (article.videoUrl) {
+                    setActiveVideoUrl(article.videoUrl);
+                    setActiveVideoTitle(article.title);
+                  }
+                  onArticleViewed?.(article.id);
+                  selectedArticleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
 
             </div>
           ) : (

@@ -3,6 +3,9 @@ import { TrendingUp, ShieldCheck, FileText, HelpCircle, ArrowRight, PlayCircle, 
 import { ArticleItem, FactCheckItem } from '../types';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
 import { ArticleContentRenderer } from './ArticleContentRenderer';
+import { isPubliclyVisible } from '../lib/contentVisibility';
+import { UpdatedBadge } from './UpdatedBadge';
+import { RelatedArticles } from './RelatedArticles';
 
 interface InvestmentViewProps {
   articles: ArticleItem[];
@@ -12,6 +15,7 @@ interface InvestmentViewProps {
   onRequestNewArticle?: () => void;
   onRequestEditArticle?: (articleId: string) => void;
   onDeleteArticle?: (articleId: string) => void;
+  onArticleViewed?: (articleId: string) => void;
 }
 
 /**
@@ -31,7 +35,8 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
   isStaffAuthenticated = false,
   onRequestNewArticle,
   onRequestEditArticle,
-  onDeleteArticle
+  onDeleteArticle,
+  onArticleViewed
 }) => {
   const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
 
@@ -39,7 +44,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
   // track/edit/delete a pending submission), same as AnnouncementsView --
   // a public visitor only ever sees ones that are actually Published.
   const investorArticles = articles
-    .filter(a => a.category === 'Investor Update' && (a.status === 'Published' || isStaffAuthenticated))
+    .filter(a => a.category === 'Investor Update' && (isPubliclyVisible(a) || isStaffAuthenticated))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const investmentFactChecks = factChecks.filter(f => f.category === 'Investment & Financial');
@@ -47,7 +52,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
   // The hero video is simply the newest Investor Update article that has a
   // video attached -- no separate "featured video" field/table needed, this
   // just reuses the video an admin already attached when publishing.
-  const heroVideoArticle = investorArticles.find(a => a.videoUrl && a.status === 'Published');
+  const heroVideoArticle = investorArticles.find(a => a.videoUrl && isPubliclyVisible(a));
 
   const handleDelete = (e: React.MouseEvent, articleId: string) => {
     e.stopPropagation();
@@ -73,53 +78,11 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
           Every figure and offer referenced here is published directly by Aviyana Ceylon Resort management, with supporting documentation available on request. If you've seen a claim about our investment terms elsewhere, check it against the fact-checks below before acting on it.
         </p>
 
-        {heroVideoArticle ? (
-          <div className="mt-6 rounded-2xl overflow-hidden border border-amber-500/20 bg-black aspect-video max-h-[420px]">
-            <SmartVideoPlayer
-              url={heroVideoArticle.videoUrl!}
-              className="w-full h-full"
-              poster={heroVideoArticle.coverImageUrl}
-              title={heroVideoArticle.title}
-            />
-          </div>
-        ) : (
-          <div className="mt-6 flex items-center gap-2 text-xs text-slate-400 bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3">
-            <PlayCircle size={16} />
-            <span>No investor video published yet -- attach a video to an "Investor Update" post to feature it here.</span>
-          </div>
-        )}
       </div>
 
-      {/* ROI Calculator -- interactive, real-time computed from actual terms:
-          20% return paid at the 1-year mark, LKR 5,000,000 minimum investment. */}
-      <ROICalculatorSection onOpenQuestionModal={onOpenQuestionModal} />
-
-      {/* Fact-Checks: address the rumors head-on, near the top */}
-      {investmentFactChecks.length > 0 && (
-        <section>
-          <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">
-            <ShieldCheck size={16} />
-            <span>Verified Facts on Our Investment Terms</span>
-          </div>
-          <div className="space-y-3">
-            {investmentFactChecks.map(fc => (
-              <div key={fc.id} className="p-4 rounded-xl bg-slate-900 border border-amber-500/20">
-                <div className="flex items-start gap-2 mb-2">
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-500/30 shrink-0 mt-0.5">Claim</span>
-                  <p className="text-xs text-slate-300">{fc.rumor}</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30 shrink-0 mt-0.5">Fact</span>
-                  <p className="text-xs text-white font-medium">{fc.fact}</p>
-                </div>
-                <div className="text-[10px] text-slate-400 mt-2 font-mono">Source: {fc.officialSource} • Verified {fc.verifiedDate}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Investor Update articles */}
+      {/* Investor Update articles -- posts come first, ahead of the video
+          and calculator, per the requested reading order (articles/posts ->
+          videos -> ROI calculator -> FAQ). */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
@@ -146,7 +109,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
             {investorArticles.map(article => (
               <div
                 key={article.id}
-                onClick={() => setSelectedArticle(article)}
+                onClick={() => { setSelectedArticle(article); onArticleViewed?.(article.id); }}
                 className="group cursor-pointer bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-2xl overflow-hidden transition-all"
               >
                 {article.coverImageUrl && (
@@ -211,6 +174,58 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
         )}
       </section>
 
+      {/* Featured Investor Video */}
+      <section>
+        <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">
+          <PlayCircle size={16} />
+          <span>Featured Investor Video</span>
+        </div>
+        {heroVideoArticle ? (
+          <div className="rounded-2xl overflow-hidden border border-amber-500/20 bg-black aspect-video max-h-[420px] flex items-center justify-center">
+            <SmartVideoPlayer
+              url={heroVideoArticle.videoUrl!}
+              className="max-w-full max-h-full w-full h-full object-contain mx-auto"
+              poster={heroVideoArticle.coverImageUrl}
+              title={heroVideoArticle.title}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3">
+            <PlayCircle size={16} />
+            <span>No investor video published yet -- attach a video to an "Investor Update" post to feature it here.</span>
+          </div>
+        )}
+      </section>
+
+      {/* ROI Calculator -- interactive, real-time computed from actual terms:
+          20% return paid at the 1-year mark, LKR 5,000,000 minimum investment. */}
+      <ROICalculatorSection onOpenQuestionModal={onOpenQuestionModal} />
+
+      {/* Fact-Checks / FAQ: address the rumors, last before the contact CTA */}
+      {investmentFactChecks.length > 0 && (
+        <section>
+          <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">
+            <ShieldCheck size={16} />
+            <span>Verified Facts on Our Investment Terms</span>
+          </div>
+          <div className="space-y-3">
+            {investmentFactChecks.map(fc => (
+              <div key={fc.id} className="p-4 rounded-xl bg-slate-900 border border-amber-500/20">
+                <div className="flex items-start gap-2 mb-2">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-500/30 shrink-0 mt-0.5">Claim</span>
+                  <p className="text-xs text-slate-300">{fc.rumor}</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30 shrink-0 mt-0.5">Fact</span>
+                  <p className="text-xs text-white font-medium">{fc.fact}</p>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-2 font-mono">Source: {fc.officialSource} • Verified {fc.verifiedDate}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Inquiry CTA */}
       <section className="hero-band bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/30 rounded-2xl p-6 text-center">
         <HelpCircle size={28} className="text-amber-400 mx-auto mb-2" />
@@ -266,12 +281,18 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
                     ⏳ {selectedArticle.status}
                   </span>
                 )}
+                <UpdatedBadge lastEditedAt={selectedArticle.lastEditedAt} />
               </div>
               <h2 className="text-xl font-serif font-bold text-white">{selectedArticle.title}</h2>
               <p className="text-sm text-slate-400 mt-1">{selectedArticle.subtitle}</p>
               <div className="mt-4 text-sm text-slate-200">
                 <ArticleContentRenderer content={selectedArticle.content} className="space-y-4" />
               </div>
+              <RelatedArticles
+                articles={articles}
+                current={selectedArticle}
+                onSelect={(article) => { setSelectedArticle(article); onArticleViewed?.(article.id); }}
+              />
               <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-xs text-slate-400">
                   Published by {selectedArticle.author} ({selectedArticle.authorRole})

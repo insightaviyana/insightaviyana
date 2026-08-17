@@ -4,6 +4,7 @@ import { Milestone, CSRImpact, Executive } from '../types';
 import { TranslationDict } from '../lib/i18n';
 import { QuickCrudModal, QuickFieldConfig } from './QuickCrudModal';
 import { SiteSettingsMap, getSetting } from '../lib/siteSettingsApi';
+import { filterNameInput } from '../lib/validation';
 import aviyanaLogoFull from '../assets/aviyana-logo-full.png';
 import aviyanaLogoMark from '../assets/aviyana-logo-mark.png';
 
@@ -20,13 +21,14 @@ interface PressKitViewProps {
    * Optional; falls back to SITE_SETTING_DEFAULTS.boilerplate if not passed. */
   siteSettings?: SiteSettingsMap;
   onSaveSiteSetting?: (key: string, value: string) => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 // Boilerplate text now lives in site_settings (see siteSettingsApi.ts) so
 // staff/admin can edit it -- was previously a hardcoded const here.
 
 const EXECUTIVE_FIELDS: QuickFieldConfig[] = [
-  { key: 'name', label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Dr. Thisara Hewawasam' },
+  { key: 'name', label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Dr. Thisara Hewawasam', filter: filterNameInput },
   { key: 'title', label: 'Title / Role', type: 'text', required: true, placeholder: 'e.g. Chairman & Founder' },
   { key: 'avatarUrl', label: 'Headshot Photo', type: 'image', required: true }
 ];
@@ -60,7 +62,8 @@ export const PressKitView: React.FC<PressKitViewProps> = ({
   onSaveExecutive,
   onDeleteExecutive,
   siteSettings = {},
-  onSaveSiteSetting
+  onSaveSiteSetting,
+  onNavigateTab
 }) => {
   const boilerplateCopy = useCopied();
   const [execModalOpen, setExecModalOpen] = React.useState(false);
@@ -348,6 +351,28 @@ export const PressKitView: React.FC<PressKitViewProps> = ({
           </div>
         )}
       </section>
+
+      {/* Link to the Editorial Standards page -- the natural next stop for
+          a journalist/press visitor evaluating this newsroom's credibility,
+          reached from here rather than a crowded main Navbar tab (see the
+          Footer component, which links it from every page too). */}
+      {onNavigateTab && (
+        <section className="hero-band bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <ShieldCheck size={28} className="text-amber-400 shrink-0" />
+            <div>
+              <h3 className="text-sm font-serif font-bold text-white">How we verify, publish, and correct</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Our masthead, fact-checking methodology, and corrections policy.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateTab('editorial-standards')}
+            className="shrink-0 px-4 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 rounded-xl text-xs font-bold transition-all"
+          >
+            View Editorial Standards
+          </button>
+        </section>
+      )}
     </div>
   );
 };

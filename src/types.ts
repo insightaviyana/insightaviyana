@@ -55,6 +55,10 @@ export interface Milestone {
   documentName?: string;
   imageUrl: string;
   verifiedBy: string;
+  /** Set automatically when a milestone is edited after first being added
+   * -- see ContentContext.tsx's handleEditMilestone. Same "last updated"
+   * transparency as ArticleItem.lastEditedAt. */
+  lastEditedAt?: string;
 }
 
 export interface FactCheckItem {
@@ -71,6 +75,12 @@ export interface FactCheckItem {
    * shown on the public Public Hub once an admin approves & publishes them. */
   approvalStatus: 'Pending Approval' | 'Published';
   createdBy?: string;
+  /** Set automatically when a fact-check is edited/re-approved after first
+   * being published -- see ContentContext.tsx's handleEditFactCheck. Same
+   * "last updated" transparency as ArticleItem.lastEditedAt -- especially
+   * important here, since a visible correction trail on the Fact-Check
+   * Portal is core to the "verified source of truth" positioning. */
+  lastEditedAt?: string;
 }
 
 export interface CSRImpact {
@@ -191,6 +201,20 @@ export interface ArticleItem {
   viewsCount: number;
   featured?: boolean;
   tags: string[];
+  /** Set automatically whenever a Published (or previously Published)
+   * article is edited -- see ContentContext.tsx's handleEditArticle. Lets
+   * the public reader show "Updated on <date>" for genuine corrections,
+   * distinct from the original publish date. Undefined = never edited
+   * since it was created. */
+  lastEditedAt?: string;
+  /** Optional embargo/scheduled-publish time (ISO string). A staff member
+   * can mark an article 'Published' ahead of time with this set to a
+   * future moment -- see src/lib/contentVisibility.ts's isPubliclyVisible(),
+   * which every PUBLIC-facing article list filters through. Staff/admin
+   * views still show it immediately (so it can be reviewed before the
+   * embargo lifts). Undefined/past = publishes immediately, i.e. today's
+   * existing behavior for every article that doesn't set this. */
+  scheduledPublishAt?: string;
 }
 
 export interface EducationCourse {
@@ -237,6 +261,46 @@ export interface EducationPhoto {
    * setAlbumCover() in EducationView.tsx, which clears it on siblings
    * before setting it on the new choice. Falls back to the first photo in
    * the album if none is explicitly marked. */
+  isCover?: boolean;
+}
+
+/** A sponsorship the resort has backed -- shown on the public "Sponsored
+ * Events" page as its own card with a title, sponsor name, description, and
+ * cover image. Each event then has its own video + photo-album galleries
+ * (SponsoredEventMedia / SponsoredEventPhoto below), mirroring the Global
+ * Campus page's gallery pattern (EducationMedia / EducationPhoto above). */
+export interface SponsoredEvent {
+  id: string;
+  title: string;
+  sponsorName: string;
+  description: string;
+  eventDate: string;
+  coverImageUrl: string;
+  location?: string;
+}
+
+/** A video clip belonging to a Sponsored Event's video gallery. Same shape
+ * as EducationMedia's video fields, scoped to one event via eventId. */
+export interface SponsoredEventMedia {
+  id: string;
+  eventId: string;
+  title: string;
+  videoUrl: string; // YouTube link recommended
+  thumbnailUrl: string;
+  date: string;
+}
+
+/** A single photo in a Sponsored Event's photo gallery, grouped into
+ * browsable albums exactly like EducationPhoto (see EducationView.tsx's
+ * groupPhotosIntoAlbums() for the album-grouping logic this mirrors). */
+export interface SponsoredEventPhoto {
+  id: string;
+  eventId: string;
+  imageUrl: string;
+  caption: string;
+  date: string;
+  albumId?: string;
+  albumName?: string;
   isCover?: boolean;
 }
 

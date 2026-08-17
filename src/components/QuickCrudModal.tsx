@@ -20,6 +20,13 @@ export interface QuickFieldConfig {
   /** For type 'textarea' only: overrides the default 3-row height. Useful
    * for fields like a rumor/claim that often run a full sentence or two. */
   rows?: number;
+  /** For type 'text' only: transforms every keystroke before it's stored
+   * (e.g. `filterNameInput` from lib/validation.ts to block digits in a
+   * Name field). Same idea as the onChange filters already applied to the
+   * public-facing forms (Careers, Question Submit, etc) -- lets this
+   * generic field-config form get the same numbers/letters-only treatment
+   * without a bespoke input per field. */
+  filter?: (value: string) => string;
 }
 
 interface QuickCrudModalProps {
@@ -256,7 +263,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                   required={field.required}
                   placeholder={field.placeholder}
                   value={values[field.key] || ''}
-                  onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  onChange={(e) => setValues(prev => ({ ...prev, [field.key]: field.filter ? field.filter(e.target.value) : e.target.value }))}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               )}

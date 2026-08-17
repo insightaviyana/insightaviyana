@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useRef, ReactNode } from 'react';
 import { ArticleItem, Milestone, CSRImpact, VoiceCut, FactCheckItem, ContentPipelineItem } from '../types';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { createArticleInDb, updateArticleInDb, deleteArticleFromDb } from '../lib/articlesApi';
+import { createArticleInDb, updateArticleInDb, deleteArticleFromDb, incrementArticleViews } from '../lib/articlesApi';
 import {
   createMilestoneInDb, updateMilestoneInDb, deleteMilestoneFromDb,
   createCsrImpactInDb, updateCsrImpactInDb, deleteCsrImpactFromDb,
@@ -43,6 +43,11 @@ interface ContentContextValue {
   handleAddArticle: (item: ArticleItem) => void;
   handleEditArticle: (item: ArticleItem) => void;
   handleDeleteArticle: (id: string) => void;
+  /** Bumps an article's real view count by 1 -- called once when a reader
+   * actually opens it (see incrementArticleViews in articlesApi.ts).
+   * Optimistically updates local state immediately, same pattern as every
+   * other mutation here, so the number on screen doesn't wait on a refetch. */
+  handleIncrementArticleViews: (articleId: string) => void;
 
   handleAddMilestone: (item: Milestone) => void;
   handleEditMilestone: (item: Milestone) => void;
@@ -105,12 +110,19 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   };
 
   const handleEditArticle = (updatedArticle: ArticleItem) => {
-    setArticles(prev => prev.map(a => a.id === updatedArticle.id ? updatedArticle : a));
-    logAction('edited', 'Article', updatedArticle.title);
+    // Stamp the correction/update trail -- see ArticleItem.lastEditedAt.
+    // Only meaningful once an article has actually been published at least
+    // once; a Draft/In Review edit isn't a "correction" a reader would ever
+    // see, but stamping it unconditionally is harmless (undefined vs. a
+    // timestamp before first publish makes no visible difference) and
+    // keeps this simple rather than threading the previous status through.
+    const editedArticle: ArticleItem = { ...updatedArticle, lastEditedAt: new Date().toISOString() };
+    setArticles(prev => prev.map(a => a.id === editedArticle.id ? editedArticle : a));
+    logAction('edited', 'Article', editedArticle.title);
     pushNotification({
       id: `notif-${Date.now()}`,
       title: 'Press Statement Edited',
-      message: `${currentUser.name || 'A team member'} updated "${updatedArticle.title}" on insight.aviyana.lk.`,
+      message: `${currentUser.name || 'A team member'} updated "${editedArticle.title}" on insight.aviyana.lk.`,
       timestamp: 'Just now',
       severity: 'low',
       type: 'approval',
@@ -118,8 +130,8 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     });
     playAlertChime();
     if (isSupabaseConfigured) {
-      updateArticleInDb(updatedArticle).then(errorMsg => {
-        if (errorMsg) pushDbErrorNotification(`Article "${updatedArticle.title}" edit`, errorMsg);
+      updateArticleInDb(editedArticle).then(errorMsg => {
+        if (errorMsg) pushDbErrorNotification(`Article "${editedArticle.title}" edit`, errorMsg);
       });
     }
   };
@@ -145,6 +157,11 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleIncrementArticleViews = (articleId: string) => {
+    setArticles(prev => prev.map(a => a.id === articleId ? { ...a, viewsCount: a.viewsCount + 1 } : a));
+    if (isSupabaseConfigured) incrementArticleViews(articleId);
+  };
+
   // --- Milestones ---
   const handleAddMilestone = (item: Milestone) => {
     setMilestones(prev => [item, ...prev]);
@@ -155,11 +172,12 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     }
   };
   const handleEditMilestone = (item: Milestone) => {
-    setMilestones(prev => prev.map(m => m.id === item.id ? item : m));
+    const editedItem: Milestone = { ...item, lastEditedAt: new Date().toISOString() };
+    setMilestones(prev => prev.map(m => m.id === editedItem.id ? editedItem : m));
     playAlertChime();
-    logAction('edited', 'Milestone', item.title);
+    logAction('edited', 'Milestone', editedItem.title);
     if (isSupabaseConfigured) {
-      updateMilestoneInDb(item).then(err => { if (err) pushDbErrorNotification(`Milestone "${item.title}" edit`, err); });
+      updateMilestoneInDb(editedItem).then(err => { if (err) pushDbErrorNotification(`Milestone "${editedItem.title}" edit`, err); });
     }
   };
   const handleDeleteMilestone = (id: string) => {
@@ -236,11 +254,12 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     }
   };
   const handleEditFactCheck = (item: FactCheckItem) => {
-    setFactChecks(prev => prev.map(f => f.id === item.id ? item : f));
+    const editedItem: FactCheckItem = { ...item, lastEditedAt: new Date().toISOString() };
+    setFactChecks(prev => prev.map(f => f.id === editedItem.id ? editedItem : f));
     playAlertChime();
-    logAction('edited', 'Fact-Check / FAQ', item.rumor.slice(0, 60));
+    logAction('edited', 'Fact-Check / FAQ', editedItem.rumor.slice(0, 60));
     if (isSupabaseConfigured) {
-      updateFactCheckInDb(item).then(err => { if (err) pushDbErrorNotification(`Fact-check "${item.rumor.slice(0, 40)}..." edit`, err); });
+      updateFactCheckInDb(editedItem).then(err => { if (err) pushDbErrorNotification(`Fact-check "${editedItem.rumor.slice(0, 40)}..." edit`, err); });
     }
   };
   const handleDeleteFactCheck = (id: string) => {
@@ -374,7 +393,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const value: ContentContextValue = {
     articles, setArticles, milestones, setMilestones, csrImpacts, setCsrImpacts,
     voiceCuts, setVoiceCuts, factChecks, setFactChecks, contentPipeline, setContentPipeline,
-    handleAddArticle, handleEditArticle, handleDeleteArticle,
+    handleAddArticle, handleEditArticle, handleDeleteArticle, handleIncrementArticleViews,
     handleAddMilestone, handleEditMilestone, handleDeleteMilestone,
     handleAddCsrImpact, handleEditCsrImpact, handleDeleteCsrImpact,
     handleAddVoiceCut, handleEditVoiceCut, handleDeleteVoiceCut,

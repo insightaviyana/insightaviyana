@@ -6,6 +6,8 @@ import { QuestionSubmitModal } from './components/QuestionSubmitModal';
 import { DocumentModal } from './components/DocumentModal';
 import { PublicHubSkeleton, SkeletonCardGrid } from './components/Skeleton';
 import { SplashScreen } from './components/SplashScreen';
+import { Footer } from './components/Footer';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
 
 // These modals are staff/admin-only (never opened by a public/press
 // visitor -- the buttons that open them are themselves gated on
@@ -49,6 +51,8 @@ const NewsletterSubscribersView = lazy(() => import('./components/NewsletterSubs
 const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(m => ({ default: m.ActivityLogView })));
 const PressKitView = lazy(() => import('./components/PressKitView').then(m => ({ default: m.PressKitView })));
 const FactCheckPortalView = lazy(() => import('./components/FactCheckPortalView').then(m => ({ default: m.FactCheckPortalView })));
+const SponsoredEventsView = lazy(() => import('./components/SponsoredEventsView').then(m => ({ default: m.SponsoredEventsView })));
+const EditorialStandardsView = lazy(() => import('./components/EditorialStandardsView').then(m => ({ default: m.EditorialStandardsView })));
 
 // Content-shaped placeholder shown briefly while a lazy tab's code
 // downloads (usually well under a second on a normal connection) --
@@ -97,8 +101,39 @@ import { trackPageview } from './lib/analytics';
 import { LanguageProvider, useLanguage } from './lib/i18n';
 import { AppTheme } from './types';
 
+// Tabs a visitor can land on directly via a `?tab=` deep link (see App()
+// below). Deliberately a hand-maintained whitelist of PUBLIC tabs only --
+// not "every tab that currently exists" -- so this list can never
+// accidentally include a staff/admin-only tab (Dashboard, Content Pipeline,
+// SERP, Inquiry Desk, Newsletter Subscribers, Fact-Check & FAQ manager,
+// User Management, Activity Log, Gemini PR AI). Those tabs' *data* is
+// already access-controlled at the RLS layer (see each fetch in the
+// effect below and each table's policy in the Supabase migration), but the
+// tab itself should still never be reachable by a bare URL -- the Navbar's
+// role-based filtering was, before this whitelist existed, the only thing
+// standing between a plain URL and rendering a staff-only view.
+const PUBLIC_TAB_IDS = new Set([
+  'public-hub', 'announcements', 'education', 'investment',
+  'sponsored-events', 'careers', 'fact-check-portal', 'press-kit',
+  'editorial-standards'
+]);
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('public-hub');
+  // Supports the "Share" deep-link pattern (see PublicHubView's
+  // handleCopyLink / SponsoredEventsView's equivalent): a shared link can
+  // carry a `?tab=<id>` query param to land directly on a non-default tab
+  // (e.g. `?tab=sponsored-events&event=<id>`) instead of always starting on
+  // Public Hub. Read once at startup only -- activeTab is otherwise fully
+  // owned by in-app navigation from here on, same as before. Only ever
+  // honors a PUBLIC_TAB_IDS entry -- see that constant's comment for why.
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const tab = new URLSearchParams(window.location.search).get('tab');
+      return tab && PUBLIC_TAB_IDS.has(tab) ? tab : 'public-hub';
+    } catch {
+      return 'public-hub';
+    }
+  });
 
   // Provider nesting order follows each context's dependencies (see the
   // "Depends on" note at the top of each context file): Notification and
@@ -145,7 +180,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
   const {
     articles, milestones, csrImpacts, voiceCuts, factChecks, contentPipeline,
     setArticles, setMilestones, setCsrImpacts, setVoiceCuts, setFactChecks, setContentPipeline,
-    handleAddArticle, handleEditArticle, handleDeleteArticle,
+    handleAddArticle, handleEditArticle, handleDeleteArticle, handleIncrementArticleViews,
     handleAddMilestone, handleEditMilestone, handleDeleteMilestone,
     handleAddCsrImpact, handleEditCsrImpact, handleDeleteCsrImpact,
     handleAddVoiceCut, handleEditVoiceCut, handleDeleteVoiceCut,
@@ -207,6 +242,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
   const [questionModalOpen, setQuestionModalOpen] = useState<boolean>(false);
+  const [searchModalOpen, setSearchModalOpen] = useState<boolean>(false);
   // Previously built (handleRegisterUser writes to the registrations table
   // and sends a notification email -- see InquiryContext.tsx) but never
   // actually reachable: this modal was never rendered anywhere and nothing
@@ -396,6 +432,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         onOpenThemeModal={() => setThemeModalOpen(true)}
         currentTheme={currentTheme}
         onOpenContentEditor={() => openContentEditor(null)}
+        onOpenSearch={() => setSearchModalOpen(true)}
         t={t}
         language={language}
         setLanguage={setLanguage}
@@ -422,6 +459,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onNavigateTab={setActiveTab}
             siteSettings={siteSettings}
             onSaveSiteSetting={handleSaveSiteSetting}
+            onArticleViewed={handleIncrementArticleViews}
           />
         )}
 
@@ -435,6 +473,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onRequestNewArticle={() => openArticleComposer(undefined, { category: 'Investor Update' })}
             onRequestEditArticle={(articleId) => openArticleComposer(articleId)}
             onDeleteArticle={handleDeleteArticle}
+            onArticleViewed={handleIncrementArticleViews}
           />
         )}
 
@@ -450,6 +489,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onDeleteExecutive={handleDeleteExecutive}
             siteSettings={siteSettings}
             onSaveSiteSetting={handleSaveSiteSetting}
+            onNavigateTab={setActiveTab}
           />
         )}
 
@@ -462,12 +502,24 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
           />
         )}
 
+        {activeTab === 'sponsored-events' && (
+          <SponsoredEventsView currentUser={currentUser} />
+        )}
+
+        {activeTab === 'editorial-standards' && (
+          <EditorialStandardsView
+            executives={executives}
+            onOpenQuestionModal={() => setQuestionModalOpen(true)}
+          />
+        )}
+
         {activeTab === 'careers' && (
           <CareersView
             socialLinks={socialLinks}
             onSubmitInquiry={handleAddInquiry}
             onConfirmationEmailFailed={(email, errorMsg) => pushEmailFailureNotification('Careers applicant', email, errorMsg)}
             articles={articles}
+            onArticleViewed={handleIncrementArticleViews}
           />
         )}
 
@@ -484,6 +536,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onOpenQuestionModal={() => setQuestionModalOpen(true)}
             onOpenAuthModal={() => setAuthModalOpen(true)}
             onOpenContentEditor={(id) => openContentEditor('article', id)}
+            onArticleViewed={handleIncrementArticleViews}
           />
         )}
 
@@ -580,6 +633,21 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         )}
         </Suspense>
       </main>
+
+      <Footer
+        onNavigateTab={setActiveTab}
+        onOpenQuestionModal={() => setQuestionModalOpen(true)}
+      />
+
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        articles={articles}
+        milestones={milestones}
+        factChecks={factChecks}
+        courses={courses}
+        onNavigateTab={setActiveTab}
+      />
 
       {/* Direct Question Submit Modal (insight@aviyana.lk) */}
       <QuestionSubmitModal

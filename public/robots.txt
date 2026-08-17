@@ -1,0 +1,9 @@
+# Aviyana Insight (insight.aviyana.lk) -- official source of truth for
+# Aviyana Ceylon Resort. Everything on this domain is intended to be
+# publicly readable and indexable; there's nothing here worth carving out
+# a Disallow for (see sitemap.xml for the full list of pages, generated
+# dynamically by netlify/functions/sitemap.ts).
+User-agent: *
+Allow: /
+
+Sitemap: https://insight.aviyana.lk/sitemap.xml

@@ -14,11 +14,16 @@ import {
   Users,
   TrendingUp,
   Newspaper,
-  X
+  X,
+  ZoomIn
 } from 'lucide-react';
 import { PublicInquiry, SocialLink, ArticleItem } from '../types';
 import { sendNotificationEmail } from '../lib/emailApi';
 import { uploadCv, fileToBase64 } from '../lib/cvUpload';
+import { filterNameInput, filterPhoneInput } from '../lib/validation';
+import { isPubliclyVisible } from '../lib/contentVisibility';
+import { UpdatedBadge } from './UpdatedBadge';
+import { RelatedArticles } from './RelatedArticles';
 import { ArticleContentRenderer } from './ArticleContentRenderer';
 
 interface CareersViewProps {
@@ -31,15 +36,21 @@ interface CareersViewProps {
    * intake news) were only ever visible on the Announcements page, with
    * no link from the Careers page a job-seeker would actually be on. */
   articles?: ArticleItem[];
+  onArticleViewed?: (articleId: string) => void;
 }
 
 export const CareersView: React.FC<CareersViewProps> = ({
   socialLinks,
   onSubmitInquiry,
   onConfirmationEmailFailed,
-  articles = []
+  articles = [],
+  onArticleViewed
 }) => {
   const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
+  // Click-to-zoom for the reader modal's cover image -- same pattern as
+  // PublicHubView's article modal / ArticleContentRenderer's inline images.
+  const [coverImageLightbox, setCoverImageLightbox] = useState(false);
+  const [gridImageLightbox, setGridImageLightbox] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [contact, setContact] = useState('');
@@ -129,7 +140,7 @@ export const CareersView: React.FC<CareersViewProps> = ({
   };
 
   const careerArticles = articles
-    .filter(a => a.status === 'Published' && a.category === 'Career & Hiring')
+    .filter(a => isPubliclyVisible(a) && a.category === 'Career & Hiring')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
@@ -205,7 +216,7 @@ export const CareersView: React.FC<CareersViewProps> = ({
             {careerArticles.map(article => (
               <div
                 key={article.id}
-                onClick={() => setSelectedArticle(article)}
+                onClick={() => { setSelectedArticle(article); onArticleViewed?.(article.id); }}
                 className="bg-slate-900/90 border border-amber-500/20 rounded-2xl overflow-hidden hover:border-amber-500/60 transition-all shadow-lg cursor-pointer group hover:-translate-y-1"
               >
                 <div className="relative h-36 overflow-hidden bg-slate-950">
@@ -219,6 +230,16 @@ export const CareersView: React.FC<CareersViewProps> = ({
                   <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-950/80 backdrop-blur-sm text-amber-300 border border-amber-500/30 font-mono text-[10px] font-bold">
                     {article.date}
                   </div>
+                  {article.coverImageUrl && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setGridImageLightbox(article.coverImageUrl!); }}
+                      aria-label={`View full size image: ${article.title}`}
+                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-950/80 backdrop-blur-sm text-amber-300 border border-amber-500/30 opacity-0 group-hover:opacity-100 transition-opacity cursor-zoom-in"
+                    >
+                      <ZoomIn size={13} />
+                    </button>
+                  )}
                 </div>
                 <div className="p-4">
                   <h3 className="text-sm font-serif font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
@@ -256,14 +277,14 @@ export const CareersView: React.FC<CareersViewProps> = ({
                 <label htmlFor="careers-name" className="block text-xs font-semibold text-slate-300 mb-1">Full Name <span className="text-amber-400">*</span></label>
                 <div className="relative">
                   <User size={15} className="absolute left-3 top-2.5 text-slate-500" />
-                  <input id="careers-name" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Nimali Perera" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                  <input id="careers-name" required value={name} onChange={e => setName(filterNameInput(e.target.value))} placeholder="e.g. Nimali Perera" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
                 </div>
               </div>
               <div>
                 <label htmlFor="careers-contact" className="block text-xs font-semibold text-slate-300 mb-1">Contact Number</label>
                 <div className="relative">
                   <Phone size={15} className="absolute left-3 top-2.5 text-slate-500" />
-                  <input id="careers-contact" value={contact} onChange={e => setContact(e.target.value)} placeholder="e.g. +94 77 123 4567" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
+                  <input id="careers-contact" type="tel" inputMode="tel" value={contact} onChange={e => setContact(filterPhoneInput(e.target.value))} placeholder="e.g. +94 77 123 4567" className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500" />
                 </div>
               </div>
             </div>
@@ -321,10 +342,10 @@ export const CareersView: React.FC<CareersViewProps> = ({
 
       {/* Career News article reader */}
       {selectedArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={() => setSelectedArticle(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={() => { setSelectedArticle(null); setCoverImageLightbox(false); }}>
           <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <button
-              onClick={() => setSelectedArticle(null)}
+              onClick={() => { setSelectedArticle(null); setCoverImageLightbox(false); }}
               aria-label="Close"
               className="absolute top-3 right-3 z-10 p-1.5 rounded-lg bg-slate-950/90 text-slate-300 hover:text-white hover:bg-slate-800"
             >
@@ -332,23 +353,72 @@ export const CareersView: React.FC<CareersViewProps> = ({
             </button>
             {selectedArticle.coverImageUrl && (
               <div className="w-full aspect-video bg-black rounded-t-2xl overflow-hidden">
-                <img
-                  src={selectedArticle.coverImageUrl}
-                  alt={selectedArticle.title}
-                  className="w-full h-full object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setCoverImageLightbox(true)}
+                  className="w-full h-full cursor-zoom-in"
+                  aria-label={`View full size: ${selectedArticle.title}`}
+                >
+                  <img
+                    src={selectedArticle.coverImageUrl}
+                    alt={selectedArticle.title}
+                    className="w-full h-full object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </button>
               </div>
             )}
             <div className="p-6">
-              <div className="text-[10px] font-mono font-bold uppercase text-amber-400 tracking-wider mb-1">{selectedArticle.date}</div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-[10px] font-mono font-bold uppercase text-amber-400 tracking-wider">{selectedArticle.date}</span>
+                <UpdatedBadge lastEditedAt={selectedArticle.lastEditedAt} />
+              </div>
               <h2 className="text-xl font-serif font-bold text-white">{selectedArticle.title}</h2>
               <p className="text-sm text-amber-300/90 mt-1">{selectedArticle.subtitle}</p>
               <div className="mt-4 text-sm text-slate-200">
                 <ArticleContentRenderer content={selectedArticle.content} className="space-y-4" />
               </div>
+              <RelatedArticles
+                articles={articles}
+                current={selectedArticle}
+                onSelect={(article) => { setSelectedArticle(article); onArticleViewed?.(article.id); }}
+              />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Full-size cover image lightbox (article reader modal) */}
+      {coverImageLightbox && selectedArticle?.coverImageUrl && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md cursor-zoom-out"
+          onClick={() => setCoverImageLightbox(false)}
+        >
+          <button
+            onClick={() => setCoverImageLightbox(false)}
+            aria-label="Close"
+            className="absolute top-4 right-4 p-2 rounded-lg bg-slate-900/90 text-white hover:bg-slate-800 border border-slate-700"
+          >
+            <X size={20} />
+          </button>
+          <img src={selectedArticle.coverImageUrl} alt={selectedArticle.title} className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
+      {/* Full-size grid card image lightbox */}
+      {gridImageLightbox && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md cursor-zoom-out"
+          onClick={() => setGridImageLightbox(null)}
+        >
+          <button
+            onClick={() => setGridImageLightbox(null)}
+            aria-label="Close"
+            className="absolute top-4 right-4 p-2 rounded-lg bg-slate-900/90 text-white hover:bg-slate-800 border border-slate-700"
+          >
+            <X size={20} />
+          </button>
+          <img src={gridImageLightbox} alt="Full size preview" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

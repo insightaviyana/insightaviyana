@@ -3,6 +3,7 @@ import { X, Send, Mail, CheckCircle2, Copy, ExternalLink, HelpCircle, Phone, Use
 import { PublicInquiry } from '../types';
 import { sendNotificationEmail } from '../lib/emailApi';
 import { uploadCv, fileToBase64 } from '../lib/cvUpload';
+import { filterNameInput, filterPhoneInput } from '../lib/validation';
 
 interface QuestionSubmitModalProps {
   isOpen: boolean;
@@ -287,7 +288,7 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
                       required
                       placeholder="e.g. Ruwan Bandaranaike"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => setName(filterNameInput(e.target.value))}
                       className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -304,7 +305,7 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
                       type="tel"
                       placeholder="e.g. +94 77 123 4567"
                       value={contact}
-                      onChange={(e) => setContact(e.target.value)}
+                      onChange={(e) => setContact(filterPhoneInput(e.target.value))}
                       className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     />
                   </div>

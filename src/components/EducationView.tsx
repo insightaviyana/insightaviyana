@@ -30,6 +30,7 @@ import {
 import { EducationCourse, EducationMedia, EducationPhoto, User as UserType } from '../types';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
 import { uploadContentImage } from '../lib/contentImageUpload';
+import { filterNameInput, filterPhoneInput } from '../lib/validation';
 
 interface EducationViewProps {
   courses: EducationCourse[];
@@ -640,7 +641,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
                           required
                           placeholder="Your Name"
                           value={applicantName}
-                          onChange={(e) => setApplicantName(e.target.value)}
+                          onChange={(e) => setApplicantName(filterNameInput(e.target.value))}
                           className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
@@ -668,7 +669,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
                           required
                           placeholder="+94 77 123 4567"
                           value={applicantContact}
-                          onChange={(e) => setApplicantContact(e.target.value)}
+                          onChange={(e) => setApplicantContact(filterPhoneInput(e.target.value))}
                           className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
