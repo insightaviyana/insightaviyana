@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -44,6 +44,13 @@ import { Pencil, Plus } from 'lucide-react';
 import aviyanaLogoMark from '../assets/aviyana-logo-mark.png';
 
 interface ArticleModalData {
+  /** Original item's id, when known -- powers the "Share Article" deep
+   * link (see handleCopyLink) and the auto-open-from-URL logic on mount.
+   * Optional because a couple of call sites (e.g. voice cuts reached via
+   * a path with no stable backing id at hand) may omit it -- those items
+   * just don't get a working share link, which is a fine degrade instead
+   * of blocking the fix everywhere else. */
+  id?: string;
   title: string;
   category: string;
   date: string;
@@ -227,6 +234,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
 
   const openArticleModal = (article: ArticleItem) => {
     setSelectedArticleModal({
+      id: article.id,
       title: article.title,
       category: article.category,
       date: article.date,
@@ -240,6 +248,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
 
   const openMilestoneModal = (ms: Milestone) => {
     setSelectedArticleModal({
+      id: ms.id,
       title: ms.title,
       category: ms.category,
       date: ms.date,
@@ -251,6 +260,27 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
       fullBody: ms.context ? `${ms.description}\n\n${ms.context}` : ms.description
     });
   };
+
+  // Auto-opens the matching item when landing on a "Share Article" link
+  // (see handleCopyLink) -- runs once on mount, checks the URL's `item`
+  // query param against articles/milestones (the two content types that
+  // have their own opener function; fact-checks/CSR/voice-cuts are opened
+  // inline at their card's onClick, not through a reusable function, so a
+  // shared link to one of those still copies correctly but doesn't
+  // auto-open on load -- a smaller gap than the "doesn't copy anything at
+  // all" bug this was built to fix).
+  const sharedLinkHandled = useRef(false);
+  useEffect(() => {
+    if (sharedLinkHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const itemId = params.get('item');
+    if (!itemId) return;
+    const article = articles.find(a => a.id === itemId);
+    if (article) { openArticleModal(article); sharedLinkHandled.current = true; return; }
+    const milestone = milestones.find(m => m.id === itemId);
+    if (milestone) { openMilestoneModal(milestone); sharedLinkHandled.current = true; return; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articles, milestones]);
 
   // Public Hub only ever shows a short PREVIEW of published fact-checks --
   // the full searchable archive lives on its own tab now (see
@@ -271,9 +301,36 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     setTimeout(() => setInquirySubmitted(false), 5000);
   };
 
-  const handleCopyLink = () => {
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 3000);
+  // Deep link for "Share Article" -- previously this button just showed
+  // "✓ Copied Link!" without ever actually calling the clipboard API, a
+  // real reported bug (confirmed: no navigator.clipboard call existed at
+  // all). Builds a URL with the item's id as a query param; see the
+  // matching read-and-auto-open effect near the top of this component.
+  const [copyLinkError, setCopyLinkError] = useState(false);
+  // Click-to-zoom for the article/milestone modal's main cover image --
+  // same idea as ArticleContentRenderer's inline-image lightbox, kept
+  // separate here since this cover image isn't rendered through that
+  // shared component.
+  const [coverImageLightbox, setCoverImageLightbox] = useState(false);
+  const handleCopyLink = async () => {
+    if (!selectedArticleModal?.id) {
+      // No id on this item (a rare edge case -- see the ArticleModalData
+      // comment) -- nothing precise to link to, so don't pretend it worked.
+      setCopyLinkError(true);
+      setTimeout(() => setCopyLinkError(false), 3000);
+      return;
+    }
+    const url = `${window.location.origin}${window.location.pathname}?tab=public-hub&item=${encodeURIComponent(selectedArticleModal.id)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 3000);
+    } catch {
+      // Clipboard API can fail (permissions, non-HTTPS context, etc.) --
+      // fall back to showing the link so it's still copyable by hand
+      // rather than silently doing nothing.
+      window.prompt('Copy this link:', url);
+    }
   };
 
   return (
@@ -636,6 +693,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <div 
                   key={faq.id} 
                   onClick={() => setSelectedArticleModal({
+                    id: faq.id,
                     title: faq.rumor,
                     category: `Fact-Check: ${faq.category}`,
                     date: faq.verifiedDate,
@@ -722,6 +780,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               <div 
                 key={csr.id} 
                 onClick={() => setSelectedArticleModal({
+                  id: csr.id,
                   title: csr.title,
                   category: 'Guest Voices',
                   date: 'Guest Opening Wish',
@@ -809,6 +868,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                     // No video attached to this statement -- fall back to the
                     // article reader, since there's nothing to actually play.
                     setSelectedArticleModal({
+                      id: activeVoiceCut.id,
                       title: activeVoiceCut.title,
                       category: 'Press Event & Video Statement',
                       date: activeVoiceCut.date,
@@ -854,6 +914,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <div className="text-xs text-amber-400 font-semibold font-mono">{activeVoiceCut?.date}</div>
                 <h3 
                   onClick={() => activeVoiceCut && setSelectedArticleModal({
+                    id: activeVoiceCut.id,
                     title: activeVoiceCut.title,
                     category: 'Press Event & Video Statement',
                     date: activeVoiceCut.date,
@@ -884,6 +945,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
 
                   <button
                     onClick={() => activeVoiceCut && setSelectedArticleModal({
+                      id: activeVoiceCut.id,
                       title: activeVoiceCut.title,
                       category: 'Press Event & Video Statement',
                       date: activeVoiceCut.date,
@@ -1181,12 +1243,35 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
             {/* Media Image or Video */}
             {selectedArticleModal.imageUrl && (
               <div className="rounded-2xl overflow-hidden border border-amber-500/30 max-h-96 bg-black shadow-xl">
-                <img loading="lazy"
-                  src={selectedArticleModal.imageUrl}
-                  alt={selectedArticleModal.title}
-                  className="w-full max-h-96 object-contain mx-auto"
-                  onError={(e) => { (e.target as HTMLImageElement).closest('div')!.style.display = 'none'; }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setCoverImageLightbox(true)}
+                  className="w-full cursor-zoom-in"
+                  aria-label={`View full size: ${selectedArticleModal.title}`}
+                >
+                  <img loading="lazy"
+                    src={selectedArticleModal.imageUrl}
+                    alt={selectedArticleModal.title}
+                    className="w-full max-h-96 object-contain mx-auto"
+                    onError={(e) => { (e.target as HTMLImageElement).closest('div')!.style.display = 'none'; }}
+                  />
+                </button>
+              </div>
+            )}
+
+            {coverImageLightbox && selectedArticleModal.imageUrl && (
+              <div
+                className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md cursor-zoom-out"
+                onClick={() => setCoverImageLightbox(false)}
+              >
+                <button
+                  onClick={() => setCoverImageLightbox(false)}
+                  aria-label="Close"
+                  className="absolute top-4 right-4 p-2 rounded-lg bg-slate-900/90 text-white hover:bg-slate-800 border border-slate-700"
+                >
+                  <X size={20} />
+                </button>
+                <img src={selectedArticleModal.imageUrl} alt={selectedArticleModal.title} className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
               </div>
             )}
 
@@ -1236,7 +1321,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                   className="flex-1 sm:flex-initial px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2"
                 >
                   <Share2 size={14} />
-                  <span>{copiedLink ? '✓ Copied Link!' : 'Share Article'}</span>
+                  <span>{copiedLink ? '✓ Copied Link!' : copyLinkError ? 'Could not copy' : 'Share Article'}</span>
                 </button>
                 <button
                   onClick={() => window.print()}

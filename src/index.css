@@ -451,24 +451,6 @@
   40% { opacity: 1; transform: scale(1); }
 }
 
-/* Custom cursor -- the Aviyana bird mark, auto-cropped to its bounding box
-   and resized to 32x32 (the practical cross-browser max for a CSS cursor
-   image; anything larger silently falls back to the system cursor in most
-   browsers). Applied at the body level so it's the default everywhere,
-   with explicit resets back to a normal text cursor for anything editable
-   -- otherwise the bird would inherit into text inputs too, which reads as
-   a bug (can't tell where the text-insertion point is) rather than a nice
-   touch. `auto`/`pointer` after the url() is the fallback for browsers
-   that don't support custom cursor images at all. */
-body {
-  cursor: url('/aviyana-cursor.png') 4 2, auto;
-}
-button, a, [role="button"], label[for], summary {
-  cursor: url('/aviyana-cursor.png') 4 2, pointer;
-}
-input, textarea, select, [contenteditable="true"] {
-  cursor: text;
-}
-input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"] {
-  cursor: url('/aviyana-cursor.png') 4 2, pointer;
-}
+/* Custom bird cursor removed -- reported as distracting/annoying in
+   practice, even though it seemed like a nice touch in isolation.
+   Reverting to the normal system cursor everywhere. */

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { subscribeToNewsletter } from '../lib/newsletterApi';
+import { isValidEmail } from '../lib/validation';
 
 interface NewsletterSubscribeProps {
   /** Compact renders as a single inline row (email + button); default
@@ -16,7 +17,11 @@ export const NewsletterSubscribe: React.FC<NewsletterSubscribeProps> = ({ compac
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!isValidEmail(email)) {
+      setStatus('error');
+      setErrorMsg('Please enter a valid email address (e.g. name@domain.com).');
+      return;
+    }
     setStatus('submitting');
     const err = await subscribeToNewsletter(email);
     if (err) {

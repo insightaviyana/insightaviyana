@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Save, Trash2, Image as ImageIcon, Video, Loader2 } from 'lucide-react';
 import { uploadContentImage } from '../lib/contentImageUpload';
 
@@ -56,15 +56,40 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
   imageFolder = 'general',
   headerExtra
 }) => {
+  // `values` initializes from `initialValues` on mount only -- callers are
+  // responsible for forcing a fresh mount (via a `key` prop tied to the
+  // item being edited, e.g. `key={item?.id || 'new'}`) whenever the modal
+  // should show different starting data. See both call sites
+  // (UnifiedContentEditor.tsx, PressKitView.tsx) for the pattern.
+  //
+  // BUG FIX: this used to ALSO be kept in sync via a
+  // `useEffect(() => setValues(initialValues), [initialValues, isOpen])`.
+  // That looked reasonable but was actively destructive: `initialValues`
+  // is built as a fresh object literal on every render of the parent
+  // (e.g. `initialValues={getInitialValues(kind)}`), so the effect fired
+  // on almost every re-render of the whole app -- not just when a
+  // genuinely different item was being edited. Any unrelated state update
+  // anywhere in the tree (a Realtime reconnect on tab-focus, a
+  // notification poll, anything) would silently wipe whatever the person
+  // had typed back to the original saved values, with zero warning. This
+  // was the root cause of a real, reported bug: writing an article, tabbing
+  // away, coming back, and finding the draft (title, image, body -- all of
+  // it) reset to what it was before editing started. The `key`-based
+  // remount is the correct, React-idiomatic replacement -- it only
+  // re-initializes `values` when the identity of what's being edited
+  // actually changes, never on an incidental re-render.
   const [values, setValues] = useState<Record<string, string>>(initialValues);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   // Separate spinner tracking for richtext's inline "Insert Photo" button,
   // so it doesn't fight over the same flag as the plain 'image' field type.
   const [uploadingInlineKey, setUploadingInlineKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    setValues(initialValues);
-  }, [initialValues, isOpen]);
+  // BUG FIX: this was previously declared AFTER the `if (!isOpen) return
+  // null;` line below -- a real React Hooks violation (every hook must run
+  // on every render, in the same order, never behind a conditional return).
+  // Toggling the modal open/closed changed how many hooks React saw called
+  // between renders, which crashed the whole app (confirmed via a real
+  // ErrorBoundary screenshot on the Press Kit's executive editor).
+  const [uploadErrorKey, setUploadErrorKey] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -73,7 +98,6 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
     onSave(values);
   };
 
-  const [uploadErrorKey, setUploadErrorKey] = useState<string | null>(null);
   const handleImageFileSelect = async (key: string, file: File) => {
     setUploadingKey(key);
     setUploadErrorKey(null);

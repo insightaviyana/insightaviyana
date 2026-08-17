@@ -3,6 +3,7 @@ import { Download, Mail, Copy, Check, ShieldCheck, FileText, Image as ImageIcon,
 import { Milestone, CSRImpact, Executive } from '../types';
 import { TranslationDict } from '../lib/i18n';
 import { QuickCrudModal, QuickFieldConfig } from './QuickCrudModal';
+import { SiteSettingsMap, getSetting } from '../lib/siteSettingsApi';
 import aviyanaLogoFull from '../assets/aviyana-logo-full.png';
 import aviyanaLogoMark from '../assets/aviyana-logo-mark.png';
 
@@ -15,9 +16,14 @@ interface PressKitViewProps {
   isStaffAuthenticated?: boolean;
   onSaveExecutive?: (exec: Executive) => void;
   onDeleteExecutive?: (id: string) => void;
+  /** Boilerplate text -- editable by staff/admin, see src/lib/siteSettingsApi.ts.
+   * Optional; falls back to SITE_SETTING_DEFAULTS.boilerplate if not passed. */
+  siteSettings?: SiteSettingsMap;
+  onSaveSiteSetting?: (key: string, value: string) => void;
 }
 
-const BOILERPLATE = `Aviyana Ceylon Resort is Sri Lanka's premier 7-Star luxury resort experience, opening August 2027. Every construction milestone, environmental clearance, and executive statement is published in real time on insight.aviyana.lk — the resort's official digital source of truth and reputation-management hub. The property will feature a bespoke chauffeur fleet, an on-site helipad, and a fact-check archive that directly addresses public questions and rumors with document-backed evidence.`;
+// Boilerplate text now lives in site_settings (see siteSettingsApi.ts) so
+// staff/admin can edit it -- was previously a hardcoded const here.
 
 const EXECUTIVE_FIELDS: QuickFieldConfig[] = [
   { key: 'name', label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Dr. Thisara Hewawasam' },
@@ -52,11 +58,16 @@ export const PressKitView: React.FC<PressKitViewProps> = ({
   executives = [],
   isStaffAuthenticated,
   onSaveExecutive,
-  onDeleteExecutive
+  onDeleteExecutive,
+  siteSettings = {},
+  onSaveSiteSetting
 }) => {
   const boilerplateCopy = useCopied();
   const [execModalOpen, setExecModalOpen] = React.useState(false);
   const [editingExec, setEditingExec] = React.useState<Executive | null>(null);
+  const [boilerplateEditing, setBoilerplateEditing] = React.useState(false);
+  const [boilerplateDraft, setBoilerplateDraft] = React.useState('');
+  const boilerplateText = getSetting(siteSettings, 'boilerplate');
 
   const openAddExecutive = () => { setEditingExec(null); setExecModalOpen(true); };
   const openEditExecutive = (exec: Executive) => { setEditingExec(exec); setExecModalOpen(true); };
@@ -158,20 +169,62 @@ export const PressKitView: React.FC<PressKitViewProps> = ({
 
       {/* Boilerplate */}
       <section>
-        <h2 className="text-lg font-serif font-bold text-white mb-1 flex items-center gap-2">
-          <FileText size={18} className="text-amber-400" />
-          Boilerplate — About Aviyana
-        </h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-serif font-bold text-white flex items-center gap-2">
+            <FileText size={18} className="text-amber-400" />
+            Boilerplate — About Aviyana
+          </h2>
+          {isStaffAuthenticated && onSaveSiteSetting && !boilerplateEditing && (
+            <button
+              onClick={() => { setBoilerplateDraft(boilerplateText); setBoilerplateEditing(true); }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[11px] font-bold transition-colors"
+            >
+              <Pencil size={11} />
+              <span>Edit</span>
+            </button>
+          )}
+        </div>
         <p className="text-xs text-slate-400 mb-4">Standard "About" paragraph for use in articles, press releases, or investor materials.</p>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <p className="text-sm text-slate-200 leading-relaxed">{BOILERPLATE}</p>
-          <button
-            onClick={() => boilerplateCopy.copy(BOILERPLATE)}
-            className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold transition-colors"
-          >
-            {boilerplateCopy.copied ? <Check size={13} /> : <Copy size={13} />}
-            <span>{boilerplateCopy.copied ? 'Copied' : 'Copy text'}</span>
-          </button>
+          {boilerplateEditing ? (
+            <div className="space-y-3">
+              <textarea
+                aria-label="Boilerplate text"
+                value={boilerplateDraft}
+                onChange={(e) => setBoilerplateDraft(e.target.value)}
+                rows={6}
+                className="w-full p-3 bg-slate-950 border border-amber-500/30 rounded-xl text-sm text-white leading-relaxed focus:outline-none focus:border-amber-400"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    onSaveSiteSetting!('boilerplate', boilerplateDraft.trim());
+                    setBoilerplateEditing(false);
+                  }}
+                  className="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-lg text-xs"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setBoilerplateEditing(false)}
+                  className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-slate-200 leading-relaxed">{boilerplateText}</p>
+              <button
+                onClick={() => boilerplateCopy.copy(boilerplateText)}
+                className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold transition-colors"
+              >
+                {boilerplateCopy.copied ? <Check size={13} /> : <Copy size={13} />}
+                <span>{boilerplateCopy.copied ? 'Copied' : 'Copy text'}</span>
+              </button>
+            </>
+          )}
         </div>
       </section>
 
@@ -247,6 +300,13 @@ export const PressKitView: React.FC<PressKitViewProps> = ({
 
       {/* Add/Edit Executive Modal */}
       <QuickCrudModal
+        // key forces a full remount (and therefore a fresh useState) when
+        // switching from editing one executive to another -- same pattern
+        // as UnifiedContentEditor.tsx's QuickCrudModal usage. This is now
+        // the ONLY mechanism that re-initializes form values; the
+        // useEffect that used to do this in QuickCrudModal itself was
+        // removed (see the comment there for why it was actively harmful).
+        key={editingExec?.id || 'new-executive'}
         isOpen={execModalOpen}
         title={editingExec ? 'Edit Executive' : 'Add Executive'}
         fields={EXECUTIVE_FIELDS}

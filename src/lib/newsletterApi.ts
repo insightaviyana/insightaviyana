@@ -1,4 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from './supabase';
+import { isValidEmail } from './validation';
 
 /**
  * Newsletter subscription -- a lightweight public email capture, separate
@@ -37,6 +38,7 @@ function fromRow(row: SubscriberRow): NewsletterSubscriber {
  * a public form with no login).
  */
 export async function subscribeToNewsletter(email: string): Promise<string | null> {
+  if (!isValidEmail(email)) return 'Please enter a valid email address.';
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';

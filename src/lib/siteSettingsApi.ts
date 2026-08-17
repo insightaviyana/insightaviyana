@@ -14,6 +14,7 @@ export const SITE_SETTING_DEFAULTS: Record<string, string> = {
   hq_name: 'Aviyana Ceylon Resort Estate',
   hq_address: 'Mountain Corridor Estate, Kandy, Sri Lanka',
   portal_note: '100% CEA cleared document proof & official announcements',
+  boilerplate: `Aviyana Ceylon Resort is Sri Lanka's premier 7-Star luxury resort experience, opening August 2027. Every construction milestone, environmental clearance, and executive statement is published in real time on insight.aviyana.lk — the resort's official digital source of truth and reputation-management hub. The property will feature a bespoke chauffeur fleet, an on-site helipad, and a fact-check archive that directly addresses public questions and rumors with document-backed evidence.`,
 };
 
 export type SiteSettingsMap = Record<string, string>;

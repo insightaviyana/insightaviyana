@@ -448,6 +448,8 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             isStaffAuthenticated={isStaffAuthenticated}
             onSaveExecutive={handleSaveExecutive}
             onDeleteExecutive={handleDeleteExecutive}
+            siteSettings={siteSettings}
+            onSaveSiteSetting={handleSaveSiteSetting}
           />
         )}
 
