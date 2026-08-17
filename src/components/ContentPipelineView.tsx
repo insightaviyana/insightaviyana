@@ -549,7 +549,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
               </div>
               <div>
                 <label htmlFor="cp-edit-notes" className="block text-[11px] font-semibold text-slate-300 mb-1">Notes / Caption</label>
-                <textarea id="cp-edit-notes" rows={4} value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
+                <textarea id="cp-edit-notes" rows={6} value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
               </div>
               <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-800">
                 <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl text-xs">Cancel</button>
@@ -578,7 +578,7 @@ export const ContentPipelineView: React.FC<ContentPipelineViewProps> = ({
               </p>
               <textarea
                 aria-label="Explain what needs to change"
-                rows={4}
+                rows={5}
                 autoFocus
                 required
                 value={requestChangesNote}

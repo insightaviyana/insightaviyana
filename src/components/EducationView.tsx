@@ -167,7 +167,9 @@ export const EducationView: React.FC<EducationViewProps> = ({
     });
   };
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [thumbnailUploadError, setThumbnailUploadError] = useState(false);
   const [uploadingPhotoCount, setUploadingPhotoCount] = useState(0);
+  const [photoUploadFailCount, setPhotoUploadFailCount] = useState(0);
   const [applicantName, setApplicantName] = useState('');
   const [applicantEmail, setApplicantEmail] = useState('');
   const [applicantContact, setApplicantContact] = useState('');
@@ -280,7 +282,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
     <div className="space-y-8 pb-16">
       
       {/* Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 border border-amber-500/30 p-8 shadow-2xl">
+      <div className="hero-band relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 border border-amber-500/30 p-8 shadow-2xl">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">
@@ -781,13 +783,18 @@ export const EducationView: React.FC<EducationViewProps> = ({
                           const file = e.target.files?.[0];
                           if (!file) return;
                           setUploadingThumbnail(true);
+                          setThumbnailUploadError(false);
                           const url = await uploadContentImage(file, 'education-media');
                           if (url) setMediaThumbnailUrl(url);
+                          else setThumbnailUploadError(true);
                           setUploadingThumbnail(false);
                         }}
                       />
                     </label>
                   </div>
+                  {thumbnailUploadError && (
+                    <p className="text-[11px] text-red-400">Upload failed — check your connection and try again, or paste an image URL instead.</p>
+                  )}
                   {mediaThumbnailUrl && (
                     <img src={mediaThumbnailUrl} alt="Preview" className="w-full h-24 object-cover rounded-lg border border-slate-800" />
                   )}
@@ -1035,10 +1042,16 @@ export const EducationView: React.FC<EducationViewProps> = ({
                           const files: File[] = Array.from(e.target.files || []);
                           if (files.length === 0) return;
                           setUploadingPhotoCount(files.length);
+                          setPhotoUploadFailCount(0);
                           const uploaded = await Promise.all(
                             files.map((file: File) => uploadContentImage(file, 'education-photos'))
                           );
                           const successfulUrls = uploaded.filter((u): u is string => !!u);
+                          const failCount = uploaded.length - successfulUrls.length;
+                          // Previously silent -- a batch of 5 with 2 failures
+                          // just quietly added 3 and staff had no way to know
+                          // 2 didn't make it in.
+                          if (failCount > 0) setPhotoUploadFailCount(failCount);
                           setPhotoImageUrls(prev => [...prev, ...successfulUrls]);
                           setUploadingPhotoCount(0);
                           e.target.value = '';
@@ -1046,6 +1059,11 @@ export const EducationView: React.FC<EducationViewProps> = ({
                       />
                     </label>
                   </div>
+                  {photoUploadFailCount > 0 && (
+                    <p className="text-[11px] text-red-400">
+                      {photoUploadFailCount} photo{photoUploadFailCount !== 1 ? 's' : ''} failed to upload — check your connection and try adding {photoUploadFailCount !== 1 ? 'them' : 'it'} again.
+                    </p>
+                  )}
                   <p className="text-[10px] text-slate-400">Select multiple files at once, or add pasted URLs one by one — everything queued below is added as one album when you submit.</p>
                   {photoImageUrls.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 pt-1">
@@ -1185,7 +1203,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
                 <label htmlFor="edu-course-description" className="block text-xs font-semibold text-slate-300 mb-1">Course Description *</label>
                 <textarea
                   id="edu-course-description"
-                  rows={3}
+                  rows={5}
                   required
                   placeholder="Detailed course overview and learning objectives..."
                   value={cDescription}
@@ -1198,7 +1216,7 @@ export const EducationView: React.FC<EducationViewProps> = ({
                 <label htmlFor="edu-course-benefits" className="block text-xs font-semibold text-slate-300 mb-1">Program Benefits & Curriculum (One per line)</label>
                 <textarea
                   id="edu-course-benefits"
-                  rows={3}
+                  rows={5}
                   placeholder="Guaranteed job placement&#10;Full monthly stipend&#10;International certification"
                   value={cHighlights}
                   onChange={(e) => setCHighlights(e.target.value)}

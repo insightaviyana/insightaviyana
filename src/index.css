@@ -357,3 +357,118 @@
     animation: fade-in 0.5s ease-out both;
   }
 }
+
+/* ------------------------------------------------------------------
+   Light theme fix: dark gradient "hero band" containers.
+
+   Bug: several page headers (Announcements, Careers, Global Campus,
+   Investment, the Public Hub hero, Dashboard, Press Kit) use a dark
+   gradient background built from Tailwind's `bg-gradient-to-*` +
+   `from-slate-950`/`via-slate-900`/`to-amber-950` utilities. Those are
+   CSS custom properties (--tw-gradient-from/via/to), NOT the
+   `background-color` the .theme-light overrides above target -- so in
+   light theme these bands stayed visually dark while `.theme-light
+   .text-white` (further up this file) forced their heading text to
+   near-black, producing invisible/near-invisible text on a dark
+   background (confirmed via screenshot -- the h1 line was unreadable).
+
+   Fix: mark every such container with `hero-band` (see the .tsx files
+   above) and re-pin its text back to its original dark-mode-appropriate
+   colors here. This is a deliberate design choice, not a workaround --
+   a dark accent band inside an otherwise light page is a normal, common
+   pattern (used by many hotel/luxury sites), so these bands keep their
+   dark gradient and light text in BOTH themes rather than trying to
+   force them light too. Higher specificity than the plain `.theme-light
+   .text-white` etc. rules above (two classes vs. one), so it wins
+   regardless of source order. */
+.theme-light .hero-band,
+.theme-light .hero-band .text-white,
+.theme-light .hero-band h1,
+.theme-light .hero-band h2,
+.theme-light .hero-band h3 {
+  color: #ffffff !important;
+}
+.theme-light .hero-band .text-slate-300,
+.theme-light .hero-band .text-slate-400,
+.theme-light .hero-band p {
+  color: #cbd5e1 !important;
+}
+.theme-light .hero-band .text-amber-100,
+.theme-light .hero-band .text-amber-200,
+.theme-light .hero-band .text-amber-200\/80,
+.theme-light .hero-band .text-amber-200\/90,
+.theme-light .hero-band .text-amber-300,
+.theme-light .hero-band .text-amber-300\/70,
+.theme-light .hero-band .text-amber-300\/80,
+.theme-light .hero-band .text-amber-300\/90,
+.theme-light .hero-band .text-amber-400,
+.theme-light .hero-band .text-amber-400\/90,
+.theme-light .hero-band .text-amber-500 {
+  color: #fbbf24 !important;
+}
+.theme-light .hero-band .bg-amber-500\/15,
+.theme-light .hero-band .bg-amber-500\/20 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+.theme-light .hero-band .border-amber-500\/30,
+.theme-light .hero-band .border-amber-500\/40 {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+/* Buttons/badges inside a hero band that use a light "card" background
+   (e.g. "Staff Sign In to Publish") should stay light/readable rather
+   than being pulled dark by the band's own dark-mode pin above. */
+.theme-light .hero-band .bg-white,
+.theme-light .hero-band .bg-slate-100 {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+}
+/* The inverse case: a button inside a hero band using bg-slate-900
+   (already flipped to a WHITE background by the general .theme-light
+   .bg-slate-900 rule elsewhere in this file) needs its own text forced
+   back to dark too -- otherwise the amber-text-stays-light rule above
+   would leave light amber text sitting on that now-white button.
+   Placed after the amber-text rule so it wins the specificity tie
+   (both are three class-selectors deep) via source order. */
+.theme-light .hero-band .bg-slate-900 {
+  color: #1c1917 !important;
+}
+.theme-light .hero-band .bg-slate-900 svg {
+  color: #b45309 !important;
+}
+
+/* SplashScreen.tsx animations -- kept as plain (always-on) keyframes
+   rather than nested in the prefers-reduced-motion block above: this is a
+   one-time, unavoidable loading state (not decorative page chrome), so
+   even a reduced-motion visitor still needs *some* indication the page is
+   loading. The motion here is gentle (a slow float/pulse), not the kind
+   prefers-reduced-motion is meant to suppress. */
+@keyframes splashFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes splashDot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* Custom cursor -- the Aviyana bird mark, auto-cropped to its bounding box
+   and resized to 32x32 (the practical cross-browser max for a CSS cursor
+   image; anything larger silently falls back to the system cursor in most
+   browsers). Applied at the body level so it's the default everywhere,
+   with explicit resets back to a normal text cursor for anything editable
+   -- otherwise the bird would inherit into text inputs too, which reads as
+   a bug (can't tell where the text-insertion point is) rather than a nice
+   touch. `auto`/`pointer` after the url() is the fallback for browsers
+   that don't support custom cursor images at all. */
+body {
+  cursor: url('/aviyana-cursor.png') 4 2, auto;
+}
+button, a, [role="button"], label[for], summary {
+  cursor: url('/aviyana-cursor.png') 4 2, pointer;
+}
+input, textarea, select, [contenteditable="true"] {
+  cursor: text;
+}
+input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"] {
+  cursor: url('/aviyana-cursor.png') 4 2, pointer;
+}

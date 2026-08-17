@@ -36,6 +36,7 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 export interface TranslationDict {
   nav: {
     publicHub: string;
+    factCheckPortal: string;
     announcements: string;
     education: string;
     careers: string;
@@ -71,6 +72,7 @@ export interface TranslationDict {
 const en: TranslationDict = {
   nav: {
     publicHub: 'Public Hub',
+    factCheckPortal: 'Fact-Check Portal',
     announcements: 'Announcements',
     education: 'Aviyana Global Campus',
     careers: 'Careers',
@@ -106,6 +108,7 @@ const en: TranslationDict = {
 const si: TranslationDict = {
   nav: {
     publicHub: 'මහජන කේන්ද්‍රය',
+    factCheckPortal: 'කරුණු සත්‍යාපන ද්වාරය',
     announcements: 'නිවේදන',
     education: 'අවියානා ග්ලෝබල් කැම්පස්',
     careers: 'රැකියා අවස්ථා',

@@ -123,7 +123,7 @@ export const UserRegistrationModal: React.FC<UserRegistrationModalProps> = ({
                 <div className="text-slate-300">Pass Code: <strong className="text-amber-200 text-sm">{completedPass.vipPassCode}</strong></div>
                 <div className="text-slate-400">Email: <span className="text-slate-200">{completedPass.email}</span></div>
                 <div className="text-slate-400">Contact: <span className="text-slate-200">{completedPass.contact}</span></div>
-                <div className="text-emerald-400 text-[10px] pt-1">Status: Registered for August 2026 Grand Opening Briefings</div>
+                <div className="text-emerald-400 text-[10px] pt-1">Status: Registered for August 2027 Grand Opening Briefings</div>
               </div>
 
               <p className="text-xs text-slate-400">

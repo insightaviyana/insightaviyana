@@ -26,10 +26,17 @@ import {
   Heart,
   Printer,
   Volume2,
-  Megaphone
+  Megaphone,
+  Clock,
+  Loader2,
+  TrendingUp,
+  GraduationCap,
+  Briefcase
 } from 'lucide-react';
 import { Milestone, FactCheckItem, CSRImpact, VoiceCut, SocialLink, ArticleItem } from '../types';
 import { TranslationDict } from '../lib/i18n';
+import { SiteSettingsMap, getSetting } from '../lib/siteSettingsApi';
+import { NewsletterSubscribe } from './NewsletterSubscribe';
 import { SocialLinksBar } from './SocialLinksBar';
 import { SmartVideoPlayer } from './SmartVideoPlayer';
 import { ArticleContentRenderer } from './ArticleContentRenderer';
@@ -67,6 +74,10 @@ interface PublicHubViewProps {
   onOpenDocument: (docName: string, title: string) => void;
   onSubmitPublicInquiry: (query: string) => void;
   onOpenQuestionModal?: () => void;
+  /** VIP/Press registration -- generates a "digital VIP pass" and records
+   * interests for Grand Opening / press briefing updates. See
+   * UserRegistrationModal.tsx. */
+  onOpenRegistrationModal?: () => void;
   /** Opens the top-level Unified Content Editor pre-set to a kind (and to a
    * specific item's id when editing). Replaces the page's own local
    * add/edit modal -- see UnifiedContentEditor.tsx. */
@@ -74,7 +85,46 @@ interface PublicHubViewProps {
   /** i18n (src/lib/i18n.tsx) -- optional, falls back to built-in English
    * copy if not passed. */
   t?: TranslationDict;
+  /** Switches the app's active tab -- used by the Fact-Check preview's
+   * "View All Fact-Checks" button to jump to the dedicated Fact-Check
+   * Portal tab (FactCheckPortalView.tsx). */
+  onNavigateTab?: (tab: string) => void;
+  /** Editable contact-details copy (email, address, portal note) -- see
+   * src/lib/siteSettingsApi.ts. Optional; falls back to
+   * SITE_SETTING_DEFAULTS if not passed. */
+  siteSettings?: SiteSettingsMap;
+  onSaveSiteSetting?: (key: string, value: string) => void;
 }
+
+// Milestone status -> badge styling. Previously every status (Verified,
+// In Progress, Upcoming) rendered as the same green checkmark badge,
+// which didn't actually communicate anything -- an "Upcoming" milestone
+// showing a green checkmark reads as already done. Differentiated here,
+// and extended to cover "Completed" (added alongside new milestone
+// categories).
+const MILESTONE_STATUS_STYLE: Record<Milestone['status'], { icon: React.ComponentType<{ size?: number; className?: string }>; className: string }> = {
+  'Verified': { icon: CheckCircle2, className: 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' },
+  'Completed': { icon: CheckCircle2, className: 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' },
+  'In Progress': { icon: Loader2, className: 'bg-amber-950/90 text-amber-300 border-amber-500/40' },
+  'Upcoming': { icon: Clock, className: 'bg-slate-800/90 text-slate-300 border-slate-600/40' },
+};
+
+// Article category -> badge styling. Previously every published article,
+// regardless of its actual category, showed the same generic "Announcement"
+// badge on its card -- a Career listing, an Investor Update, and a Press
+// Release all looked identical at a glance on the unified feed. Each
+// category now gets its own icon/label so the badge actually communicates
+// what kind of post it is.
+const ARTICLE_CATEGORY_STYLE: Record<ArticleItem['category'], { icon: React.ComponentType<{ size?: number; className?: string }>; label: string }> = {
+  'Investor Update': { icon: TrendingUp, label: 'Investor Update' },
+  'Hotel School': { icon: GraduationCap, label: 'Hotel School' },
+  'Career & Hiring': { icon: Briefcase, label: 'Careers' },
+  'Press Release': { icon: Megaphone, label: 'Press Release' },
+  'Sustainability & CEA': { icon: ShieldCheck, label: 'Sustainability' },
+  'Grand Opening': { icon: Award, label: 'Grand Opening' },
+  'Community & CSR': { icon: Heart, label: 'Community & CSR' },
+  'Resort Milestone': { icon: Building2, label: 'Resort Milestone' },
+};
 
 export const PublicHubView: React.FC<PublicHubViewProps> = ({
   milestones,
@@ -88,11 +138,23 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
   onOpenDocument,
   onSubmitPublicInquiry,
   onOpenQuestionModal,
+  onOpenRegistrationModal,
   onOpenContentEditor,
-  t
+  t,
+  onNavigateTab,
+  siteSettings = {},
+  onSaveSiteSetting
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
-  const [faqSearch, setFaqSearch] = useState('');
+  // Pagination for the unified news feed below -- previously every
+  // published article + milestone rendered in one single, ever-growing
+  // grid with no limit at all, so the Public Hub's height (and initial
+  // load weight) scaled directly with total post count. Capped at a fixed
+  // page size with real Prev/Next paging instead.
+  const FEED_PAGE_SIZE = 20;
+  const [feedPage, setFeedPage] = useState(1);
+  const [contactEditOpen, setContactEditOpen] = useState(false);
+  const [contactEditValues, setContactEditValues] = useState({ contact_email: '', contact_email_note: '', hq_name: '', hq_address: '', portal_note: '' });
   const [inquiryText, setInquiryText] = useState('');
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
   const [activeVoiceCut, setActiveVoiceCut] = useState<VoiceCut | null>(voiceCuts[0] || null);
@@ -114,6 +176,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
   const CATEGORY_DISPLAY_ORDER = [
     'Clearance',
     'Construction',
+    'Environmental',
+    'Safety & Security',
     'Press Release',
     'Grand Opening',
     'Resort Milestone',
@@ -150,6 +214,17 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     return item.data.category === activeCategory;
   });
 
+  const feedTotalPages = Math.max(1, Math.ceil(filteredFeed.length / FEED_PAGE_SIZE));
+  // Clamp defensively (e.g. switching to a category with fewer pages than
+  // the page currently selected) rather than showing a blank page.
+  const currentFeedPage = Math.min(feedPage, feedTotalPages);
+  const paginatedFeed = filteredFeed.slice((currentFeedPage - 1) * FEED_PAGE_SIZE, currentFeedPage * FEED_PAGE_SIZE);
+
+  const handleCategoryChange = (cat: string) => {
+    setActiveCategory(cat);
+    setFeedPage(1);
+  };
+
   const openArticleModal = (article: ArticleItem) => {
     setSelectedArticleModal({
       title: article.title,
@@ -177,15 +252,15 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     });
   };
 
-  const filteredFaqs = factChecks.filter(f => {
-    // Public Hub only ever shows approved/published fact-checks -- pending
-    // ones are only visible internally, on the dedicated Fact-Check & FAQ
-    // staff tab (FaqManagerView), until an admin approves them.
-    if (f.approvalStatus !== 'Published') return false;
-    if (!faqSearch) return true;
-    const q = faqSearch.toLowerCase();
-    return f.rumor.toLowerCase().includes(q) || f.fact.toLowerCase().includes(q) || f.category.toLowerCase().includes(q);
-  });
+  // Public Hub only ever shows a short PREVIEW of published fact-checks --
+  // the full searchable archive lives on its own tab now (see
+  // FactCheckPortalView.tsx) precisely so this page's height doesn't keep
+  // growing every time a new fact-check gets published. Pending ones are
+  // only visible internally, on the staff Fact-Check & FAQ tab, until an
+  // admin approves them.
+  const FACT_CHECK_PREVIEW_COUNT = 3;
+  const previewFaqs = factChecks.filter(f => f.approvalStatus === 'Published').slice(0, FACT_CHECK_PREVIEW_COUNT);
+  const publishedFaqCount = factChecks.filter(f => f.approvalStatus === 'Published').length;
 
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +280,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
     <div id="public-hub-root" className="min-h-screen bg-slate-950 text-slate-100 pb-16">
       
       {/* Compact Hero Section */}
-      <section className="relative pt-8 pb-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 border-b border-amber-500/30 overflow-hidden shadow-2xl animate-fade-in-up">
+      <section className="hero-band relative pt-8 pb-8 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 border-b border-amber-500/30 overflow-hidden shadow-2xl animate-fade-in-up">
         {/* Ambient Gold Radial Glow Background */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -264,17 +339,41 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <span className="font-semibold tracking-wide">{t ? t.hero.askQuestion : 'Submit Direct Question'}</span>
               </button>
             )}
-            {/* Direct hero-level link to the Fact-Check Portal (see the
-                promoted "Signature Feature" section below) -- a visitor who
-                never scrolls past the hero still sees the site's strongest
-                differentiator immediately, not five sections down. */}
-            <a
-              href="#fact-checks"
-              className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 border border-amber-500/40 hover:border-amber-400/70 text-amber-300 hover:text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 group cursor-pointer"
-            >
-              <HelpCircle size={15} className="text-amber-400" />
-              <span className="font-semibold tracking-wide">{t ? t.hero.verifyClaim : 'Verify a Claim — Fact-Check Portal'}</span>
-            </a>
+            {/* Direct hero-level link to the Fact-Check Portal -- jumps
+                straight to the dedicated tab (see FactCheckPortalView.tsx)
+                now that the full archive no longer lives inline on this
+                page, so a visitor who never scrolls past the hero can
+                still reach the site's strongest differentiator in one
+                click. Falls back to the in-page anchor if onNavigateTab
+                wasn't passed in (defensive only). */}
+            {onNavigateTab ? (
+              <button
+                type="button"
+                onClick={() => onNavigateTab('fact-check-portal')}
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 border border-amber-500/40 hover:border-amber-400/70 text-amber-300 hover:text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 group cursor-pointer"
+              >
+                <HelpCircle size={15} className="text-amber-400" />
+                <span className="font-semibold tracking-wide">{t ? t.hero.verifyClaim : 'Verify a Claim — Fact-Check Portal'}</span>
+              </button>
+            ) : (
+              <a
+                href="#fact-checks"
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 border border-amber-500/40 hover:border-amber-400/70 text-amber-300 hover:text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 group cursor-pointer"
+              >
+                <HelpCircle size={15} className="text-amber-400" />
+                <span className="font-semibold tracking-wide">{t ? t.hero.verifyClaim : 'Verify a Claim — Fact-Check Portal'}</span>
+              </a>
+            )}
+            {onOpenRegistrationModal && (
+              <button
+                type="button"
+                onClick={onOpenRegistrationModal}
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 border border-amber-500/40 hover:border-amber-400/70 text-amber-300 hover:text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 group cursor-pointer"
+              >
+                <UserPlus size={15} className="text-amber-400" />
+                <span className="font-semibold tracking-wide">Register for VIP Pass</span>
+              </button>
+            )}
           </div>
 
         </div>
@@ -312,7 +411,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => handleCategoryChange(cat)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     activeCategory === cat
                       ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
@@ -333,7 +432,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               </div>
             )}
 
-            {filteredFeed.map((item) => {
+            {paginatedFeed.map((item) => {
               if (item.source === 'article') {
                 const art = item.data;
                 return (
@@ -354,8 +453,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                           {art.date}
                         </div>
                         <div className="absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/90 text-slate-950 border border-amber-400/60 flex items-center gap-1">
-                          <Megaphone size={12} />
-                          <span>Announcement</span>
+                          {(() => { const Icon = ARTICLE_CATEGORY_STYLE[art.category]?.icon || Megaphone; return <Icon size={12} />; })()}
+                          <span>{ARTICLE_CATEGORY_STYLE[art.category]?.label || art.category}</span>
                         </div>
                       </div>
 
@@ -414,8 +513,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                       <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-slate-950/80 backdrop-blur-sm text-amber-300 border border-amber-500/30 font-mono text-[11px] font-bold">
                         {ms.date}
                       </div>
-                      <div className="absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                        <CheckCircle2 size={12} />
+                      <div className={`absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${MILESTONE_STATUS_STYLE[ms.status]?.className || 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'}`}>
+                        {(() => { const Icon = MILESTONE_STATUS_STYLE[ms.status]?.icon || CheckCircle2; return <Icon size={12} />; })()}
                         <span>{ms.status}</span>
                       </div>
                     </div>
@@ -458,17 +557,43 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               );
             })}
           </div>
+
+          {/* Pagination -- see FEED_PAGE_SIZE above. Only shown when there's
+              more than one page, so it doesn't clutter the page for a small
+              site early on. */}
+          {feedTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => setFeedPage(p => Math.max(1, p - 1))}
+                disabled={currentFeedPage === 1}
+                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:border-amber-500/40 hover:enabled:text-amber-300 transition-all"
+              >
+                &larr; Previous
+              </button>
+              <span className="px-3 text-xs text-slate-400 font-mono">
+                Page {currentFeedPage} of {feedTotalPages}
+              </span>
+              <button
+                onClick={() => setFeedPage(p => Math.min(feedTotalPages, p + 1))}
+                disabled={currentFeedPage === feedTotalPages}
+                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:enabled:border-amber-500/40 hover:enabled:text-amber-300 transition-all"
+              >
+                Next &rarr;
+              </button>
+            </div>
+          )}
         </section>
 
-        {/* Section 2: Fact-Check Portal (Myth vs. Reality) — promoted here,
-            right after the news timeline, per ENGINEERING_ASSESSMENT.md:
-            "the fact-check/myth-vs-reality section is a genuine
-            differentiator most corporate newsrooms don't attempt at all...
-            should be actively promoted, not hidden as one section among
-            several." Was previously Section 4 (5th of 5, right before the
-            footer) -- moved up and given its own bordered/highlighted
-            treatment (amber ring + badge) so it reads as the site's
-            signature feature rather than a standard content block. */}
+        {/* Section 2: Fact-Check Portal preview (Myth vs. Reality) --
+            promoted right after the news timeline per
+            ENGINEERING_ASSESSMENT.md: "the fact-check/myth-vs-reality
+            section is a genuine differentiator... should be actively
+            promoted, not hidden as one section among several." Shows only
+            the most recent few here (see FACT_CHECK_PREVIEW_COUNT above)
+            with a link to the full archive on its own tab
+            (FactCheckPortalView.tsx) -- keeps this page's height
+            predictable regardless of how many fact-checks exist, while
+            the archive itself keeps unrestricted room to grow. */}
         <section id="fact-checks" className="scroll-mt-20 relative rounded-3xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-900/60 p-6 sm:p-8 shadow-2xl shadow-amber-500/5 animate-fade-in-up">
           <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-bold uppercase tracking-wider shadow-lg animate-pulse">
             {t ? t.factCheck.signatureBadge : 'Signature Feature'}
@@ -492,80 +617,81 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               )}
             </div>
 
-            {/* FAQ Search bar */}
-            <div className="mt-4 sm:mt-0 relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
-              <input
-                type="text"
-                aria-label="Search rumors or topics"
-                placeholder={t ? t.factCheck.searchPlaceholder : 'Search rumors or topics...'}
-                value={faqSearch}
-                onChange={(e) => setFaqSearch(e.target.value)}
-                className="w-full bg-slate-900 border border-amber-500/30 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {filteredFaqs.map((faq) => (
-              <div 
-                key={faq.id} 
-                onClick={() => setSelectedArticleModal({
-                  title: faq.rumor,
-                  category: `Fact-Check: ${faq.category}`,
-                  date: faq.verifiedDate,
-                  status: faq.status,
-                  description: faq.fact,
-                  documentName: faq.documentProof,
-                  verifiedBy: faq.officialSource,
-                  fullBody: `Claim / Allegation:\n"${faq.rumor}"\n\nOfficial Verified Fact:\n${faq.fact}\n\nOfficial Document Source: ${faq.officialSource}`
-                })}
-                className="bg-slate-900/90 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all cursor-pointer group"
+            {onNavigateTab && (
+              <button
+                onClick={() => onNavigateTab('fact-check-portal')}
+                className="mt-4 sm:mt-0 shrink-0 px-4 py-2 bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-500/30">
-                    Unverified Claim
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-amber-300">Verified: {faq.verifiedDate} • Click to read details &rarr;</span>
-                  </div>
-                </div>
-
-                <h4 className="text-sm font-semibold text-red-200 line-through opacity-80">
-                  {faq.rumor}
-                </h4>
-
-                <div className="mt-4 p-4 rounded-xl bg-slate-950 border border-emerald-500/30">
-                  <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
-                    <CheckCircle2 size={16} />
-                    <span>Verified Official Fact</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-100 leading-relaxed">
-                    {faq.fact}
-                  </p>
-
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 gap-2">
-                    <div>
-                      <strong className="text-slate-300">Official Source:</strong> {faq.officialSource}
-                    </div>
-
-                    {faq.documentProof && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDocument(faq.documentProof!, faq.rumor);
-                        }}
-                        className="px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto"
-                      >
-                        <FileText size={12} />
-                        <span>View Document Evidence</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                <span>View All Fact-Checks{publishedFaqCount > 0 ? ` (${publishedFaqCount})` : ''}</span>
+                <ChevronRight size={14} />
+              </button>
+            )}
           </div>
+
+          {previewFaqs.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-8">No fact-checks published yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {previewFaqs.map((faq) => (
+                <div 
+                  key={faq.id} 
+                  onClick={() => setSelectedArticleModal({
+                    title: faq.rumor,
+                    category: `Fact-Check: ${faq.category}`,
+                    date: faq.verifiedDate,
+                    status: faq.status,
+                    description: faq.fact,
+                    documentName: faq.documentProof,
+                    verifiedBy: faq.officialSource,
+                    fullBody: `Claim / Allegation:\n"${faq.rumor}"\n\nOfficial Verified Fact:\n${faq.fact}\n\nOfficial Document Source: ${faq.officialSource}`
+                  })}
+                  className="bg-slate-900/90 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-500/30">
+                      Unverified Claim
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-amber-300">Verified: {faq.verifiedDate} • Click to read details &rarr;</span>
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-semibold text-red-200 line-through opacity-80">
+                    {faq.rumor}
+                  </h4>
+
+                  <div className="mt-4 p-4 rounded-xl bg-slate-950 border border-emerald-500/30">
+                    <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+                      <CheckCircle2 size={16} />
+                      <span>Verified Official Fact</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-100 leading-relaxed">
+                      {faq.fact}
+                    </p>
+
+                    <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 gap-2">
+                      <div>
+                        <strong className="text-slate-300">Official Source:</strong> {faq.officialSource}
+                      </div>
+
+                      {faq.documentProof && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenDocument(faq.documentProof!, faq.rumor);
+                          }}
+                          className="px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto"
+                        >
+                          <FileText size={12} />
+                          <span>View Document Evidence</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Section 3: Guest Voices & Opening Wishes (real guest video clips) */}
@@ -837,8 +963,28 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
 
             <div className="flex items-center space-x-2">
               <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/40">
-                Primary Desk: insight@aviyana.lk
+                Primary Desk: {getSetting(siteSettings, 'contact_email')}
               </span>
+              {isStaffAuthenticated && onSaveSiteSetting && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactEditValues({
+                      contact_email: getSetting(siteSettings, 'contact_email'),
+                      contact_email_note: getSetting(siteSettings, 'contact_email_note'),
+                      hq_name: getSetting(siteSettings, 'hq_name'),
+                      hq_address: getSetting(siteSettings, 'hq_address'),
+                      portal_note: getSetting(siteSettings, 'portal_note'),
+                    });
+                    setContactEditOpen(true);
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded-lg text-[10px] font-bold transition-colors flex items-center gap-1 shrink-0"
+                  title="Edit contact details"
+                >
+                  <Pencil size={11} />
+                  <span>Edit</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -849,8 +995,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <Mail size={16} />
                 <span>Official Email Inquiry</span>
               </div>
-              <p className="text-sm font-bold text-white font-mono">insight@aviyana.lk</p>
-              <p className="text-[11px] text-slate-400">Direct channel to PR Lead Heshan & Technical SE Ishan Ekanayake</p>
+              <p className="text-sm font-bold text-white font-mono">{getSetting(siteSettings, 'contact_email')}</p>
+              <p className="text-[11px] text-slate-400">{getSetting(siteSettings, 'contact_email_note')}</p>
             </div>
 
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
@@ -858,8 +1004,8 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <Building2 size={16} />
                 <span>Resort Headquarters & Estate</span>
               </div>
-              <p className="text-sm font-bold text-white">Aviyana Ceylon Resort Estate</p>
-              <p className="text-[11px] text-slate-400">Mountain Corridor Estate, Kandy, Sri Lanka</p>
+              <p className="text-sm font-bold text-white">{getSetting(siteSettings, 'hq_name')}</p>
+              <p className="text-[11px] text-slate-400">{getSetting(siteSettings, 'hq_address')}</p>
             </div>
 
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
@@ -868,9 +1014,15 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                 <span>Source of Truth Portal</span>
               </div>
               <p className="text-sm font-bold text-white font-mono">insight.aviyana.lk</p>
-              <p className="text-[11px] text-slate-400">100% CEA cleared document proof & official announcements</p>
+              <p className="text-[11px] text-slate-400">{getSetting(siteSettings, 'portal_note')}</p>
             </div>
           </div>
+
+          {/* Email Subscribe -- separate from the RSS feed (that's for
+              readers who want updates pulled into an RSS reader; this is
+              for the more common case of just wanting updates emailed
+              directly). */}
+          <NewsletterSubscribe />
 
           {/* Star Social Media Channels Bar */}
           {(socialLinks.length > 0 || isStaffAuthenticated) && (
@@ -891,7 +1043,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
           )}
 
           {/* Direct Public Inquiry / Rumor Fact Request Form */}
-          <div className="p-6 bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/30 rounded-2xl">
+          <div className="hero-band p-6 bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/30 rounded-2xl">
             <div className="max-w-2xl mx-auto text-center">
               <h3 className="text-lg font-serif font-bold text-white">Have a Direct Question or Request Official Fact Verification?</h3>
               <p className="text-xs text-slate-300 mt-1">
@@ -900,7 +1052,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
 
               <form onSubmit={handleInquirySubmit} className="mt-5 space-y-3">
                 <textarea
-                  rows={3}
+                  rows={5}
                   aria-label="Your question or fact-verification request"
                   placeholder="Type your question or statement request here..."
                   value={inquiryText}
@@ -941,6 +1093,53 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
         </section>
 
       </div>
+
+      {/* Edit Contact Details modal (staff/admin only) */}
+      {contactEditOpen && onSaveSiteSetting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={() => setContactEditOpen(false)}>
+          <div className="relative w-full max-w-lg bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <h3 className="font-serif font-bold text-lg text-white">Edit Contact Details</h3>
+              <button onClick={() => setContactEditOpen(false)} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+                <X size={18} />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                Object.entries(contactEditValues).forEach(([key, value]) => onSaveSiteSetting(key, value));
+                setContactEditOpen(false);
+              }}
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label htmlFor="cd-email" className="block text-[11px] font-semibold text-slate-300 mb-1">Official Email</label>
+                <input id="cd-email" required type="email" value={contactEditValues.contact_email} onChange={e => setContactEditValues(v => ({ ...v, contact_email: e.target.value }))} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label htmlFor="cd-email-note" className="block text-[11px] font-semibold text-slate-300 mb-1">Email Description</label>
+                <input id="cd-email-note" value={contactEditValues.contact_email_note} onChange={e => setContactEditValues(v => ({ ...v, contact_email_note: e.target.value }))} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label htmlFor="cd-hq-name" className="block text-[11px] font-semibold text-slate-300 mb-1">Headquarters / Estate Name</label>
+                <input id="cd-hq-name" value={contactEditValues.hq_name} onChange={e => setContactEditValues(v => ({ ...v, hq_name: e.target.value }))} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label htmlFor="cd-hq-address" className="block text-[11px] font-semibold text-slate-300 mb-1">Address</label>
+                <input id="cd-hq-address" value={contactEditValues.hq_address} onChange={e => setContactEditValues(v => ({ ...v, hq_address: e.target.value }))} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500" />
+              </div>
+              <div>
+                <label htmlFor="cd-portal-note" className="block text-[11px] font-semibold text-slate-300 mb-1">Source of Truth Portal Note</label>
+                <input id="cd-portal-note" value={contactEditValues.portal_note} onChange={e => setContactEditValues(v => ({ ...v, portal_note: e.target.value }))} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500" />
+              </div>
+              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-800">
+                <button type="button" onClick={() => setContactEditOpen(false)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl text-xs">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* FULL ARTICLE MODAL OVERLAY */}
       {selectedArticleModal && (

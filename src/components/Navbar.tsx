@@ -13,7 +13,6 @@ import {
   X,
   Lock,
   LogOut,
-  Sparkles,
   ExternalLink,
   Volume2,
   VolumeX,
@@ -28,7 +27,8 @@ import {
   PlusCircle,
   Newspaper,
   Rss,
-  Globe
+  Globe,
+  BadgeCheck
 } from 'lucide-react';
 import { User as UserType, UserRole, AppTheme } from '../types';
 import { Language, LANGUAGE_LABELS, TranslationDict } from '../lib/i18n';
@@ -47,6 +47,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'public-hub', label: 'Public Hub', icon: ShieldCheck },
+  { id: 'fact-check-portal', label: 'Fact-Check Portal', icon: BadgeCheck },
   { id: 'announcements', label: 'Announcements', icon: Megaphone },
   { id: 'education', label: 'Aviyana Global Campus', icon: GraduationCap },
   { id: 'careers', label: 'Careers', icon: Briefcase },
@@ -54,10 +55,11 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'press-kit', label: 'Press Kit', icon: Newspaper },
   { id: 'dashboard', label: 'ORM Command Center', icon: LayoutDashboard, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR'] },
   { id: 'ai-assistant', label: 'Gemini PR AI', icon: Bot, highlight: true, roles: ['IT_LEAD', 'SOCIAL_MANAGER'] },
-  { id: 'pipeline', label: 'Content Pipeline', icon: Send, roles: ['IT_LEAD', 'STORY_HUNTER', 'SOCIAL_MANAGER'] },
+  { id: 'pipeline', label: 'Content Pipeline', icon: Send, roles: ['IT_LEAD', 'STORY_HUNTER', 'SOCIAL_MANAGER', 'STAFF_MEMBER'] },
   { id: 'serp', label: 'SERP & Suppression', icon: Search, roles: ['IT_LEAD', 'SOCIAL_MANAGER'] },
-  { id: 'inquiry-desk', label: 'Inquiry Desk', icon: Inbox, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR'] },
-  { id: 'faq', label: 'Fact-Check & FAQ', icon: HelpCircle, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR'] },
+  { id: 'inquiry-desk', label: 'Inquiry Desk', icon: Inbox, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR', 'STAFF_MEMBER'] },
+  { id: 'newsletter-subscribers', label: 'Newsletter Subscribers', icon: Mail, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR', 'STAFF_MEMBER'] },
+  { id: 'faq', label: 'Fact-Check & FAQ', icon: HelpCircle, roles: ['IT_LEAD', 'SOCIAL_MANAGER', 'GUEST_COORDINATOR', 'STAFF_MEMBER'] },
   { id: 'user-management', label: 'User Management', icon: Users, adminOnly: true },
   { id: 'activity-log', label: 'Activity Log', icon: History, adminOnly: true }
 ];
@@ -127,6 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   // public-facing UI, not internal staff tooling).
   const navLabelOverrides: Record<string, string> = t ? {
     'public-hub': t.nav.publicHub,
+    'fact-check-portal': t.nav.factCheckPortal,
     'announcements': t.nav.announcements,
     'education': t.nav.education,
     'careers': t.nav.careers,
@@ -174,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="bg-slate-950 px-3 sm:px-4 py-1.5 text-xs border-b border-amber-500/20 text-slate-300 flex justify-between items-center font-sans gap-2">
         <div className="flex items-center space-x-2 sm:space-x-2.5 overflow-hidden whitespace-nowrap min-w-0 flex-1">
           <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold text-[10px] uppercase tracking-wider shadow-sm shrink-0">
-            Ceylon Resort
+            Aviyana Ceylon Resort
           </span>
           <span className="hidden md:inline font-semibold text-amber-200 shrink-0">
             Strategic Grand Opening: <strong className="text-white">August 2027</strong>
@@ -377,36 +380,45 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Row 2: Desktop Navigation - full-width strip, own line, no crowding */}
         <nav className="hidden lg:flex items-center flex-wrap gap-1 pb-2">
-          {visibleNavItems.map((item) => {
+          {visibleNavItems.map((item, idx) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            // Balance/group fix: NAV_ITEMS is already ordered public-facing
+            // items first, then staff tools, then admin-only tools -- but
+            // with nothing marking that boundary, the row simply wrapped
+            // wherever the browser width happened to break, sometimes
+            // splitting mid-group (e.g. 2 staff tools stranded on the
+            // public-items row, the rest wrapping to the next row) rather
+            // than at the actual public/staff boundary. A vertical divider
+            // right at that boundary makes the grouping visually clear
+            // regardless of exactly where the wrap falls.
+            const isFirstStaffItem = (item.roles || item.adminOnly) &&
+              !(visibleNavItems[idx - 1]?.roles || visibleNavItems[idx - 1]?.adminOnly);
             return (
-              <button
-                key={item.id}
-                id={`nav-btn-${item.id}`}
-                onClick={() => setActiveTab(item.id)}
-                className={`relative flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/50 shadow-md shadow-amber-500/10'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-900/90 border border-transparent'
-                }`}
-              >
-                <Icon size={14} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
-                <span>{navLabelOverrides[item.id] || item.label}</span>
-                {item.id === 'faq' && pendingFaqCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-slate-950 shadow-md">
-                    {pendingFaqCount}
-                  </span>
+              <React.Fragment key={item.id}>
+                {isFirstStaffItem && (
+                  <div className="w-px self-stretch my-1 bg-slate-700 mx-1.5" aria-hidden="true" />
                 )}
-              </button>
+                <button
+                  id={`nav-btn-${item.id}`}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`relative flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/50 shadow-md shadow-amber-500/10'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-900/90 border border-transparent'
+                  }`}
+                >
+                  <Icon size={14} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
+                  <span>{navLabelOverrides[item.id] || item.label}</span>
+                  {item.id === 'faq' && pendingFaqCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-slate-950 shadow-md">
+                      {pendingFaqCount}
+                    </span>
+                  )}
+                </button>
+              </React.Fragment>
             );
           })}
-          {!isStaffAuthenticated && (
-            <span className="ml-2 flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-              <Sparkles size={11} className="text-amber-500/60" />
-              Staff sign in to see management tools
-            </span>
-          )}
         </nav>
       </div>
 
@@ -445,28 +457,36 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {visibleNavItems.map((item) => {
+          {visibleNavItems.map((item, idx) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isFirstStaffItem = (item.roles || item.adminOnly) &&
+              !(visibleNavItems[idx - 1]?.roles || visibleNavItems[idx - 1]?.adminOnly);
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
-                  isActive ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-300 hover:bg-slate-900'
-                }`}
-              >
-                <Icon size={18} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
-                <span>{navLabelOverrides[item.id] || item.label}</span>
-                {item.id === 'faq' && pendingFaqCount > 0 && (
-                  <span className="ml-auto flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-slate-950">
-                    {pendingFaqCount}
-                  </span>
+              <React.Fragment key={item.id}>
+                {isFirstStaffItem && (
+                  <div className="pt-2 mt-1 border-t border-slate-800 px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                    Staff Tools
+                  </div>
                 )}
-              </button>
+                <button
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
+                    isActive ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-300 hover:bg-slate-900'
+                  }`}
+                >
+                  <Icon size={18} className={isActive ? 'text-amber-400' : 'text-slate-400'} />
+                  <span>{navLabelOverrides[item.id] || item.label}</span>
+                  {item.id === 'faq' && pendingFaqCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-slate-950">
+                      {pendingFaqCount}
+                    </span>
+                  )}
+                </button>
+              </React.Fragment>
             );
           })}
 

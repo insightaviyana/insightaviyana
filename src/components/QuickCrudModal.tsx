@@ -73,11 +73,17 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
     onSave(values);
   };
 
+  const [uploadErrorKey, setUploadErrorKey] = useState<string | null>(null);
   const handleImageFileSelect = async (key: string, file: File) => {
     setUploadingKey(key);
+    setUploadErrorKey(null);
     const url = await uploadContentImage(file, imageFolder);
     if (url) {
       setValues(prev => ({ ...prev, [key]: url }));
+    } else {
+      // Previously silent -- staff would see the spinner vanish with no
+      // explanation and no way to tell whether it worked.
+      setUploadErrorKey(key);
     }
     setUploadingKey(null);
   };
@@ -163,7 +169,7 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                 <textarea
                   id={field.key}
                   required={field.required}
-                  rows={field.rows || 3}
+                  rows={field.rows || 4}
                   placeholder={field.placeholder}
                   value={values[field.key] || ''}
                   onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -208,6 +214,9 @@ export const QuickCrudModal: React.FC<QuickCrudModalProps> = ({
                       />
                     </label>
                   </div>
+                  {uploadErrorKey === field.key && (
+                    <p className="text-[11px] text-red-400">Upload failed — check your connection and try again, or paste an image URL instead.</p>
+                  )}
                   {values[field.key] && (
                     <img
                       src={values[field.key]}

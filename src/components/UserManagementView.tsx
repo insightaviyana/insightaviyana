@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Pencil, Trash2, X, Save, ShieldCheck, Briefcase, Eye, Loader2 } from 'lucide-react';
 import { User, UserRole, AccountType } from '../types';
 import { fetchAllProfiles, adminUpdateProfile, getAccessToken } from '../lib/supabaseAuth';
+import { sendNotificationEmail } from '../lib/emailApi';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { logActivity } from '../lib/activityLogApi';
 
@@ -14,7 +15,8 @@ const STAFF_ROLES: { value: UserRole; label: string }[] = [
   { value: 'STORY_HUNTER', label: 'Story Hunter / Media Crew' },
   { value: 'SOCIAL_MANAGER', label: 'Social & Review Manager' },
   { value: 'GUEST_COORDINATOR', label: 'Guest & Influencer Coordinator' },
-  { value: 'HOTEL_SCHOOL_CREW', label: 'Hotel School Crew (Trainee)' }
+  { value: 'HOTEL_SCHOOL_CREW', label: 'Hotel School Crew (Trainee)' },
+  { value: 'STAFF_MEMBER', label: 'General Staff Member (Pipeline, Inquiry Desk, Fact-Check)' }
 ];
 
 const accountTypeBadge: Record<AccountType, { label: string; className: string; icon: React.ComponentType<{ size?: number }> }> = {
@@ -26,6 +28,19 @@ const accountTypeBadge: Record<AccountType, { label: string; className: string; 
 export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  // Filter tabs -- previously every guest self-registration (public readers
+  // who just made an account, not real staff) showed mixed in with actual
+  // staff/admin accounts in this list with no way to separate them.
+  // Defaults to "Staff & Admin" since that's what this page is actually
+  // for; "All" and "Guests" are there for when a guest account genuinely
+  // needs looking up.
+  const [accountFilter, setAccountFilter] = useState<'staff' | 'guest' | 'all'>('staff');
+
+  const filteredUsers = users.filter(u => {
+    if (accountFilter === 'all') return true;
+    if (accountFilter === 'guest') return u.accountType === 'guest';
+    return u.accountType !== 'guest';
+  });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -129,6 +144,22 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
           setFormError(json.error || 'Failed to create account.');
         } else {
           logActivity({ actorId: currentUser.id, actorName: currentUser.name, actorRole: currentUser.role, action: 'created', targetType: 'User Account', targetTitle: formName, detail: `${formAccountType}${formStaffRole ? ' / ' + formStaffRole : ''}` });
+          // Welcome email so the new hire actually finds out an account
+          // exists for them -- previously nothing notified them at all,
+          // an admin had to tell them their login details some other way.
+          // Best-effort only: failure here doesn't block account creation,
+          // since the account itself already succeeded above.
+          sendNotificationEmail({
+            to: formEmail,
+            subject: 'Your Aviyana Insight staff account is ready',
+            htmlBody: `<p>Hi ${formName},</p>
+<p>An account has been created for you on <strong>Aviyana Insight</strong> (insight.aviyana.lk), the resort's staff dashboard and public source-of-truth portal.</p>
+<p><strong>Login email:</strong> ${formEmail}<br/>
+<strong>Temporary password:</strong> ${formPassword}</p>
+<p>Sign in at <a href="https://insight.aviyana.lk">insight.aviyana.lk</a> using the "Staff Sign In" button in the top navigation, then update your password from your profile once you're in.</p>
+<p>— Aviyana Ceylon Resort</p>`,
+            textBody: `Hi ${formName},\n\nAn account has been created for you on Aviyana Insight (insight.aviyana.lk), the resort's staff dashboard and public source-of-truth portal.\n\nLogin email: ${formEmail}\nTemporary password: ${formPassword}\n\nSign in at insight.aviyana.lk using the "Staff Sign In" button in the top navigation, then update your password from your profile once you're in.\n\n— Aviyana Ceylon Resort`
+          }).then(err => { if (err) console.error('Welcome email failed to send:', err); });
           setModalOpen(false);
           loadUsers();
         }
@@ -204,12 +235,40 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
         </button>
       </div>
 
+      {/* Account-type filter -- see accountFilter state comment above. */}
+      <div className="flex items-center gap-1.5">
+        {([
+          { key: 'staff', label: 'Staff & Admin' },
+          { key: 'guest', label: 'Guest Readers' },
+          { key: 'all', label: 'All Accounts' },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setAccountFilter(tab.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              accountFilter === tab.key
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-400/50'
+                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+            }`}
+          >
+            {tab.label}
+            {tab.key !== 'all' && (
+              <span className="ml-1.5 opacity-70">
+                ({users.filter(u => tab.key === 'staff' ? u.accountType !== 'guest' : u.accountType === 'guest').length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-16 text-slate-400">
           <Loader2 size={22} className="animate-spin mr-2" /> Loading accounts...
         </div>
-      ) : users.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 text-sm">No accounts found yet.</div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="text-center py-16 text-slate-400 text-sm">
+          {users.length === 0 ? 'No accounts found yet.' : 'No accounts match this filter.'}
+        </div>
       ) : (
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
@@ -223,7 +282,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentU
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {users.map(u => {
+              {filteredUsers.map(u => {
                 const badge = accountTypeBadge[u.accountType];
                 const BadgeIcon = badge.icon;
                 return (

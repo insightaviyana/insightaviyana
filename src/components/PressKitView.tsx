@@ -1,7 +1,8 @@
 import React from 'react';
-import { Download, Mail, Copy, Check, ShieldCheck, FileText, Image as ImageIcon, Rss } from 'lucide-react';
-import { Milestone, CSRImpact } from '../types';
+import { Download, Mail, Copy, Check, ShieldCheck, FileText, Image as ImageIcon, Rss, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Milestone, CSRImpact, Executive } from '../types';
 import { TranslationDict } from '../lib/i18n';
+import { QuickCrudModal, QuickFieldConfig } from './QuickCrudModal';
 import aviyanaLogoFull from '../assets/aviyana-logo-full.png';
 import aviyanaLogoMark from '../assets/aviyana-logo-mark.png';
 
@@ -10,26 +11,18 @@ interface PressKitViewProps {
   csrImpacts: CSRImpact[];
   onOpenQuestionModal?: () => void;
   t?: TranslationDict;
+  executives?: Executive[];
+  isStaffAuthenticated?: boolean;
+  onSaveExecutive?: (exec: Executive) => void;
+  onDeleteExecutive?: (id: string) => void;
 }
 
 const BOILERPLATE = `Aviyana Ceylon Resort is Sri Lanka's premier 7-Star luxury resort experience, opening August 2027. Every construction milestone, environmental clearance, and executive statement is published in real time on insight.aviyana.lk — the resort's official digital source of truth and reputation-management hub. The property will feature a bespoke chauffeur fleet, an on-site helipad, and a fact-check archive that directly addresses public questions and rumors with document-backed evidence.`;
 
-const EXECUTIVES = [
-  {
-    name: 'Dr. Thisara Hewawasam',
-    title: 'Chairman & Founder',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Heshan',
-    title: 'PR & Media Communications Specialist',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Ishan Ekanayake',
-    title: 'SE — Technical Lead & Web Architect',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
-  },
+const EXECUTIVE_FIELDS: QuickFieldConfig[] = [
+  { key: 'name', label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Dr. Thisara Hewawasam' },
+  { key: 'title', label: 'Title / Role', type: 'text', required: true, placeholder: 'e.g. Chairman & Founder' },
+  { key: 'avatarUrl', label: 'Headshot Photo', type: 'image', required: true }
 ];
 
 const LOGO_ASSETS = [
@@ -51,8 +44,34 @@ function useCopied() {
   return { copied, copy };
 }
 
-export const PressKitView: React.FC<PressKitViewProps> = ({ milestones, csrImpacts, onOpenQuestionModal, t }) => {
+export const PressKitView: React.FC<PressKitViewProps> = ({
+  milestones,
+  csrImpacts,
+  onOpenQuestionModal,
+  t,
+  executives = [],
+  isStaffAuthenticated,
+  onSaveExecutive,
+  onDeleteExecutive
+}) => {
   const boilerplateCopy = useCopied();
+  const [execModalOpen, setExecModalOpen] = React.useState(false);
+  const [editingExec, setEditingExec] = React.useState<Executive | null>(null);
+
+  const openAddExecutive = () => { setEditingExec(null); setExecModalOpen(true); };
+  const openEditExecutive = (exec: Executive) => { setEditingExec(exec); setExecModalOpen(true); };
+
+  const handleSaveExecutiveForm = (values: Record<string, string>) => {
+    if (!onSaveExecutive) return;
+    onSaveExecutive({
+      id: editingExec?.id || `exec-${Date.now()}`,
+      name: values.name,
+      title: values.title,
+      avatarUrl: values.avatarUrl,
+      displayOrder: editingExec?.displayOrder ?? executives.length + 1
+    });
+    setExecModalOpen(false);
+  };
 
   // Curated photo library: pull real, already-verified images from the
   // milestones and CSR/guest-voice content already in the CMS, rather than
@@ -66,7 +85,7 @@ export const PressKitView: React.FC<PressKitViewProps> = ({ milestones, csrImpac
   return (
     <div className="space-y-10 pb-10">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-amber-950/20 to-slate-900 border border-amber-500/30 rounded-2xl p-6 sm:p-8 shadow-xl">
+      <div className="hero-band bg-gradient-to-r from-slate-900 via-amber-950/20 to-slate-900 border border-amber-500/30 rounded-2xl p-6 sm:p-8 shadow-xl">
         <div className="flex items-center gap-2 text-amber-400 text-xs font-mono uppercase tracking-wider mb-2">
           <ShieldCheck size={14} />
           <span>{t ? t.pressKit.badge : 'Official Press Kit'}</span>
@@ -156,32 +175,88 @@ export const PressKitView: React.FC<PressKitViewProps> = ({ milestones, csrImpac
         </div>
       </section>
 
-      {/* Executive headshots */}
+      {/* Executive headshots -- editable by staff/admin (previously
+          hardcoded stock photos with no way to update them). Empty state
+          only ever shown to staff (a public visitor seeing an empty
+          section with no way to fill it is a dead end); public visitors
+          just see nothing here if no executives have been added yet. */}
       <section>
-        <h2 className="text-lg font-serif font-bold text-white mb-1">Executive Headshots</h2>
-        <p className="text-xs text-slate-400 mb-4">For attribution in stories quoting or referencing these executives.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {EXECUTIVES.map(exec => (
-            <div key={exec.name} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-              <div className="aspect-square overflow-hidden bg-slate-950">
-                <img src={exec.avatar} alt={`${exec.name}, ${exec.title}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-              </div>
-              <div className="p-3.5">
-                <div className="text-sm font-bold text-white">{exec.name}</div>
-                <div className="text-[11px] text-amber-300 mt-0.5">{exec.title}</div>
-                <a
-                  href={exec.avatar}
-                  download={`${exec.name.replace(/\s+/g, '-').toLowerCase()}-headshot.jpg`}
-                  className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-semibold transition-colors"
-                >
-                  <Download size={12} />
-                  <span>Download</span>
-                </a>
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-serif font-bold text-white">Executive Headshots</h2>
+          {isStaffAuthenticated && onSaveExecutive && (
+            <button
+              onClick={openAddExecutive}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition-all"
+            >
+              <Plus size={12} />
+              <span>Add Executive</span>
+            </button>
+          )}
         </div>
+        <p className="text-xs text-slate-400 mb-4">For attribution in stories quoting or referencing these executives.</p>
+        {executives.length === 0 ? (
+          isStaffAuthenticated ? (
+            <p className="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-4">
+              No executives added yet — click "Add Executive" above to add a photo, name, and title.
+            </p>
+          ) : null
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[...executives].sort((a, b) => a.displayOrder - b.displayOrder).map(exec => (
+              <div key={exec.id} className="relative group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                {isStaffAuthenticated && onSaveExecutive && (
+                  <div className="absolute top-2 right-2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditExecutive(exec)}
+                      className="p-1.5 rounded-lg bg-slate-950/90 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 transition-all"
+                      title="Edit"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    {onDeleteExecutive && (
+                      <button
+                        onClick={() => { if (window.confirm(`Remove ${exec.name} from the Press Kit?`)) onDeleteExecutive(exec.id); }}
+                        className="p-1.5 rounded-lg bg-slate-950/90 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/40 transition-all"
+                        title="Delete"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div className="aspect-square overflow-hidden bg-slate-950">
+                  <img src={exec.avatarUrl} alt={`${exec.name}, ${exec.title}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-3.5">
+                  <div className="text-sm font-bold text-white">{exec.name}</div>
+                  <div className="text-[11px] text-amber-300 mt-0.5">{exec.title}</div>
+                  <a
+                    href={exec.avatarUrl}
+                    download={`${exec.name.replace(/\s+/g, '-').toLowerCase()}-headshot.jpg`}
+                    className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-semibold transition-colors"
+                  >
+                    <Download size={12} />
+                    <span>Download</span>
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* Add/Edit Executive Modal */}
+      <QuickCrudModal
+        isOpen={execModalOpen}
+        title={editingExec ? 'Edit Executive' : 'Add Executive'}
+        fields={EXECUTIVE_FIELDS}
+        initialValues={editingExec ? { name: editingExec.name, title: editingExec.title, avatarUrl: editingExec.avatarUrl } : { name: '', title: '', avatarUrl: '' }}
+        isEditing={!!editingExec}
+        onClose={() => setExecModalOpen(false)}
+        onSave={handleSaveExecutiveForm}
+        onDelete={editingExec && onDeleteExecutive ? () => { onDeleteExecutive(editingExec.id); setExecModalOpen(false); } : undefined}
+        imageFolder="executives"
+      />
 
       {/* Curated photo library */}
       <section>

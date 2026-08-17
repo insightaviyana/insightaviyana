@@ -12,23 +12,34 @@ import {
   FileText,
   Award,
   Users,
-  TrendingUp
+  TrendingUp,
+  Newspaper,
+  X
 } from 'lucide-react';
-import { PublicInquiry, SocialLink } from '../types';
+import { PublicInquiry, SocialLink, ArticleItem } from '../types';
 import { sendNotificationEmail } from '../lib/emailApi';
 import { uploadCv, fileToBase64 } from '../lib/cvUpload';
+import { ArticleContentRenderer } from './ArticleContentRenderer';
 
 interface CareersViewProps {
   socialLinks: SocialLink[];
   onSubmitInquiry: (inquiry: PublicInquiry) => void;
   onConfirmationEmailFailed?: (email: string, errorMessage: string) => void;
+  /** Published articles are filtered here to just the 'Career & Hiring'
+   * category and shown as a "Career News" section -- previously
+   * career-related announcements (new roles, hiring drives, academy
+   * intake news) were only ever visible on the Announcements page, with
+   * no link from the Careers page a job-seeker would actually be on. */
+  articles?: ArticleItem[];
 }
 
 export const CareersView: React.FC<CareersViewProps> = ({
   socialLinks,
   onSubmitInquiry,
-  onConfirmationEmailFailed
+  onConfirmationEmailFailed,
+  articles = []
 }) => {
+  const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [contact, setContact] = useState('');
@@ -117,10 +128,14 @@ export const CareersView: React.FC<CareersViewProps> = ({
     setLinkedinUrl(''); setCvFile(null); setSubmittedTicket(null);
   };
 
+  const careerArticles = articles
+    .filter(a => a.status === 'Published' && a.category === 'Career & Hiring')
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   return (
     <div className="space-y-8 pb-16">
       {/* Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 border border-amber-500/30 p-8 shadow-2xl">
+      <div className="hero-band relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 border border-amber-500/30 p-8 shadow-2xl">
         <div className="max-w-3xl space-y-3">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">
             <Briefcase size={14} className="text-amber-400" />
@@ -174,6 +189,50 @@ export const CareersView: React.FC<CareersViewProps> = ({
         </div>
       </div>
 
+      {/* Career News -- published articles categorized "Career & Hiring"
+          (new role openings, hiring drives, academy intake announcements),
+          pulled from the same Announcements content a staff member already
+          publishes -- no separate posting step needed for it to show up
+          here too. */}
+      {careerArticles.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-1">
+            <Newspaper size={14} />
+            <span>Career News</span>
+          </div>
+          <h2 className="text-xl font-serif font-bold text-white mb-4">Hiring Drives, New Roles & Academy Intake Updates</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {careerArticles.map(article => (
+              <div
+                key={article.id}
+                onClick={() => setSelectedArticle(article)}
+                className="bg-slate-900/90 border border-amber-500/20 rounded-2xl overflow-hidden hover:border-amber-500/60 transition-all shadow-lg cursor-pointer group hover:-translate-y-1"
+              >
+                <div className="relative h-36 overflow-hidden bg-slate-950">
+                  <img
+                    loading="lazy"
+                    src={article.coverImageUrl}
+                    alt={article.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-950/80 backdrop-blur-sm text-amber-300 border border-amber-500/30 font-mono text-[10px] font-bold">
+                    {article.date}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="text-sm font-serif font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
+                    {article.title}
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1.5 line-clamp-2">{article.subtitle}</p>
+                  <span className="text-[11px] text-amber-300/80 group-hover:underline mt-2 inline-block">Click to read full article &rarr;</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Application Form */}
       <div className="bg-slate-900/60 border border-amber-500/20 rounded-3xl p-6 sm:p-8">
         <div className="max-w-2xl mx-auto text-center mb-6">
@@ -225,7 +284,7 @@ export const CareersView: React.FC<CareersViewProps> = ({
 
             <div>
               <label htmlFor="careers-message" className="block text-xs font-semibold text-slate-300 mb-1">Message (optional)</label>
-              <textarea id="careers-message" rows={3} value={message} onChange={e => setMessage(e.target.value)} placeholder="Tell us about your experience or why you're interested..." className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 resize-none" />
+              <textarea id="careers-message" rows={5} value={message} onChange={e => setMessage(e.target.value)} placeholder="Tell us about your experience or why you're interested..." className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 resize-none" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -259,6 +318,39 @@ export const CareersView: React.FC<CareersViewProps> = ({
           </form>
         )}
       </div>
+
+      {/* Career News article reader */}
+      {selectedArticle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={() => setSelectedArticle(null)}>
+          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setSelectedArticle(null)}
+              aria-label="Close"
+              className="absolute top-3 right-3 z-10 p-1.5 rounded-lg bg-slate-950/90 text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              <X size={18} />
+            </button>
+            {selectedArticle.coverImageUrl && (
+              <div className="w-full aspect-video bg-black rounded-t-2xl overflow-hidden">
+                <img
+                  src={selectedArticle.coverImageUrl}
+                  alt={selectedArticle.title}
+                  className="w-full h-full object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
+            <div className="p-6">
+              <div className="text-[10px] font-mono font-bold uppercase text-amber-400 tracking-wider mb-1">{selectedArticle.date}</div>
+              <h2 className="text-xl font-serif font-bold text-white">{selectedArticle.title}</h2>
+              <p className="text-sm text-amber-300/90 mt-1">{selectedArticle.subtitle}</p>
+              <div className="mt-4 text-sm text-slate-200">
+                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

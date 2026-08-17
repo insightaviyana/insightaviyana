@@ -5,6 +5,7 @@ import { PublicHubView } from './components/PublicHubView';
 import { QuestionSubmitModal } from './components/QuestionSubmitModal';
 import { DocumentModal } from './components/DocumentModal';
 import { PublicHubSkeleton, SkeletonCardGrid } from './components/Skeleton';
+import { SplashScreen } from './components/SplashScreen';
 
 // These modals are staff/admin-only (never opened by a public/press
 // visitor -- the buttons that open them are themselves gated on
@@ -22,6 +23,7 @@ const ProfileEditModal = lazy(() => import('./components/ProfileEditModal').then
 const NotificationCenter = lazy(() => import('./components/NotificationCenter').then(m => ({ default: m.NotificationCenter })));
 const ThemeSelectorModal = lazy(() => import('./components/ThemeSelectorModal').then(m => ({ default: m.ThemeSelectorModal })));
 const SocialLinksManagerModal = lazy(() => import('./components/SocialLinksManagerModal').then(m => ({ default: m.SocialLinksManagerModal })));
+const UserRegistrationModal = lazy(() => import('./components/UserRegistrationModal').then(m => ({ default: m.UserRegistrationModal })));
 // Type-only import -- erased at compile time, doesn't pull the component's
 // code into this chunk (see the lazy() import above for the actual module).
 import type { UnifiedContentEditorRequest, UnifiedContentKind } from './components/UnifiedContentEditor';
@@ -43,8 +45,10 @@ const UserManagementView = lazy(() => import('./components/UserManagementView').
 const InvestmentView = lazy(() => import('./components/InvestmentView').then(m => ({ default: m.InvestmentView })));
 const CareersView = lazy(() => import('./components/CareersView').then(m => ({ default: m.CareersView })));
 const InquiryDeskView = lazy(() => import('./components/InquiryDeskView').then(m => ({ default: m.InquiryDeskView })));
+const NewsletterSubscribersView = lazy(() => import('./components/NewsletterSubscribersView').then(m => ({ default: m.NewsletterSubscribersView })));
 const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(m => ({ default: m.ActivityLogView })));
 const PressKitView = lazy(() => import('./components/PressKitView').then(m => ({ default: m.PressKitView })));
+const FactCheckPortalView = lazy(() => import('./components/FactCheckPortalView').then(m => ({ default: m.FactCheckPortalView })));
 
 // Content-shaped placeholder shown briefly while a lazy tab's code
 // downloads (usually well under a second on a normal connection) --
@@ -84,6 +88,8 @@ import { fetchEducationMediaFromDb, fetchEducationPhotosFromDb } from './lib/edu
 import { fetchInquiriesFromDb } from './lib/inquiriesApi';
 import { fetchRegistrationsFromDb } from './lib/registrationsApi';
 import { fetchSocialLinksFromDb } from './lib/socialLinksApi';
+import { fetchExecutivesFromDb } from './lib/executivesApi';
+import { fetchSiteSettingsFromDb } from './lib/siteSettingsApi';
 import { fetchNotificationsFromDb } from './lib/notificationsApi';
 import { fetchActivityLogFromDb } from './lib/activityLogApi';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -156,7 +162,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
     handleAddEducationMedia, handleDeleteEducationMedia,
     handleAddEducationPhoto, handleDeleteEducationPhoto, handleUpdateEducationPhoto, handleApplyCourse
   } = useEducation();
-  const { socialLinks, setSocialLinks, handleSaveSocialLink, handleDeleteSocialLink } = useAdmin();
+  const { socialLinks, setSocialLinks, handleSaveSocialLink, handleDeleteSocialLink, executives, setExecutives, handleSaveExecutive, handleDeleteExecutive, siteSettings, setSiteSettings, handleSaveSiteSetting } = useAdmin();
 
   // Persisted via localStorage (same pattern as the language preference in
   // src/lib/i18n.tsx) -- now that the theme switcher is available to every
@@ -187,10 +193,25 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
   // swapped in a moment later. Gating the first render on this instead
   // means nothing renders until we know what's actually real.
   const [contentLoading, setContentLoading] = useState<boolean>(true);
+  // Hard cap on the branded splash animation (see SplashScreen.tsx) -- a
+  // slow connection should never leave a visitor staring at a loading
+  // animation indefinitely. After 5s the app renders regardless of
+  // contentLoading/authLoading; anything still genuinely loading falls
+  // back to the content-shaped skeleton (PublicHubSkeleton) instead.
+  const [splashTimeoutDone, setSplashTimeoutDone] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashTimeoutDone(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
   const [questionModalOpen, setQuestionModalOpen] = useState<boolean>(false);
+  // Previously built (handleRegisterUser writes to the registrations table
+  // and sends a notification email -- see InquiryContext.tsx) but never
+  // actually reachable: this modal was never rendered anywhere and nothing
+  // opened it. Found during a pre-deploy audit.
+  const [registrationModalOpen, setRegistrationModalOpen] = useState<boolean>(false);
   const [socialLinksModalOpen, setSocialLinksModalOpen] = useState(false);
   const [documentModal, setDocumentModal] = useState<{ open: boolean; docName: string; title: string }>({
     open: false,
@@ -236,7 +257,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [dbArticles, dbMilestones, dbCsrImpacts, dbVoiceCuts, dbFactChecks, dbContentPipeline, dbCourses, dbSocialLinks, dbEducationMedia, dbEducationPhotos] = await Promise.all([
+      const [dbArticles, dbMilestones, dbCsrImpacts, dbVoiceCuts, dbFactChecks, dbContentPipeline, dbCourses, dbSocialLinks, dbEducationMedia, dbEducationPhotos, dbExecutives, dbSiteSettings] = await Promise.all([
         fetchArticlesFromDb(),
         fetchMilestonesFromDb(),
         fetchCsrImpactsFromDb(),
@@ -246,7 +267,9 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         fetchCoursesFromDb(),
         fetchSocialLinksFromDb(),
         fetchEducationMediaFromDb(),
-        fetchEducationPhotosFromDb()
+        fetchEducationPhotosFromDb(),
+        fetchExecutivesFromDb(),
+        fetchSiteSettingsFromDb()
       ]);
       if (cancelled) return;
       // IMPORTANT: this checks `!== null`, not `.length > 0`. A successful
@@ -267,6 +290,8 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
       if (dbSocialLinks !== null) setSocialLinks(dbSocialLinks);
       if (dbEducationMedia !== null) setEducationMedia(dbEducationMedia);
       if (dbEducationPhotos !== null) setEducationPhotos(dbEducationPhotos);
+      if (dbExecutives !== null) setExecutives(dbExecutives);
+      if (dbSiteSettings !== null) setSiteSettings(dbSiteSettings);
       setContentLoading(false);
       // `null` here (as opposed to an empty array) specifically means the
       // fetch itself failed -- the article/content list silently fell back
@@ -322,6 +347,12 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
   // swapped in a beat later. A brief, deliberate loading screen is a much
   // better experience than a flash of content that then visibly changes.
   if (contentLoading || authLoading) {
+    // First ~5s (or until data loads, whichever is sooner): branded splash.
+    // Past that: the content-shaped skeleton, so a slow load degrades into
+    // "looks like the page is mostly here" rather than an indefinite splash.
+    if (!splashTimeoutDone) {
+      return <SplashScreen />;
+    }
     return (
       <div className="min-h-screen bg-slate-950">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -385,8 +416,12 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             onOpenDocument={handleOpenDocument}
             onSubmitPublicInquiry={handleSubmitPublicInquiry}
             onOpenQuestionModal={() => setQuestionModalOpen(true)}
+            onOpenRegistrationModal={() => setRegistrationModalOpen(true)}
             onOpenContentEditor={(kind, id) => openContentEditor(kind, id)}
             t={t}
+            onNavigateTab={setActiveTab}
+            siteSettings={siteSettings}
+            onSaveSiteSetting={handleSaveSiteSetting}
           />
         )}
 
@@ -409,6 +444,19 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             csrImpacts={csrImpacts}
             onOpenQuestionModal={() => setQuestionModalOpen(true)}
             t={t}
+            executives={executives}
+            isStaffAuthenticated={isStaffAuthenticated}
+            onSaveExecutive={handleSaveExecutive}
+            onDeleteExecutive={handleDeleteExecutive}
+          />
+        )}
+
+        {activeTab === 'fact-check-portal' && (
+          <FactCheckPortalView
+            factChecks={factChecks}
+            isStaffAuthenticated={isStaffAuthenticated}
+            onOpenDocument={handleOpenDocument}
+            t={t}
           />
         )}
 
@@ -417,6 +465,7 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
             socialLinks={socialLinks}
             onSubmitInquiry={handleAddInquiry}
             onConfirmationEmailFailed={(email, errorMsg) => pushEmailFailureNotification('Careers applicant', email, errorMsg)}
+            articles={articles}
           />
         )}
 
@@ -516,6 +565,10 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
           />
         )}
 
+        {activeTab === 'newsletter-subscribers' && (
+          <NewsletterSubscribersView />
+        )}
+
         {activeTab === 'activity-log' && (
           <ActivityLogView entries={activityLog} />
         )}
@@ -533,6 +586,18 @@ function AppShell({ activeTab, setActiveTab }: { activeTab: string; setActiveTab
         onSubmitInquiry={handleAddInquiry}
         onConfirmationEmailFailed={(email, errorMsg) => pushEmailFailureNotification(`Question submitter`, email, errorMsg)}
       />
+
+      {/* VIP / Press Registration Modal -- code-split like the other
+          rarely-opened modals since most visitors never open it. */}
+      {registrationModalOpen && (
+        <Suspense fallback={null}>
+          <UserRegistrationModal
+            isOpen={registrationModalOpen}
+            onClose={() => setRegistrationModalOpen(false)}
+            onRegisterUser={handleRegisterUser}
+          />
+        </Suspense>
+      )}
 
       {/* Real Sign In / Sign Up Modal (Supabase Auth) */}
       <AuthModal

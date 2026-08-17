@@ -106,11 +106,11 @@ const DEFAULT_MEDIA_THUMBNAIL = 'https://images.unsplash.com/photo-1523240795612
 const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
   milestone: [
     { key: 'title', label: 'Title', type: 'text', required: true },
-    { key: 'category', label: 'Category', type: 'select', options: ['Clearance', 'Construction', 'CSR', 'Hospitality'], required: true },
-    { key: 'status', label: 'Status', type: 'select', options: ['Verified', 'In Progress', 'Upcoming'], required: true },
+    { key: 'category', label: 'Category', type: 'select', options: ['Clearance', 'Construction', 'CSR', 'Hospitality', 'Environmental', 'Grand Opening', 'Safety & Security'], required: true },
+    { key: 'status', label: 'Status', type: 'select', options: ['Verified', 'In Progress', 'Upcoming', 'Completed'], required: true },
     { key: 'date', label: 'Date (YYYY-MM-DD)', type: 'text', placeholder: '2026-01-15', required: true },
-    { key: 'description', label: 'Description', type: 'textarea', required: true },
-    { key: 'context', label: 'Additional Context (optional, shown in the full article view)', type: 'textarea', placeholder: 'Write any background, verification details, or extra context for this specific post — this is NOT auto-generated.' },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 5, required: true },
+    { key: 'context', label: 'Additional Context (optional, shown in the full article view)', type: 'textarea', rows: 5, placeholder: 'Write any background, verification details, or extra context for this specific post — this is NOT auto-generated.' },
     { key: 'imageUrl', label: 'Cover Image', type: 'image', required: true },
     { key: 'verifiedBy', label: 'Verified By', type: 'text', required: true },
     { key: 'documentName', label: 'Document Name (optional)', type: 'text' }
@@ -119,8 +119,8 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'title', label: 'Guest Name / Title', type: 'text', required: true },
     { key: 'metricValue', label: 'Short Highlight (e.g. "❤" or a number)', type: 'text', required: true },
     { key: 'metricLabel', label: 'Subtitle (e.g. "Honeymoon Guests, UK")', type: 'text', required: true },
-    { key: 'description', label: 'Description', type: 'textarea', required: true },
-    { key: 'context', label: 'Additional Context (optional, shown in the full article view)', type: 'textarea', placeholder: 'Write any background or extra context for this specific post — this is NOT auto-generated.' },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 5, required: true },
+    { key: 'context', label: 'Additional Context (optional, shown in the full article view)', type: 'textarea', rows: 5, placeholder: 'Write any background or extra context for this specific post — this is NOT auto-generated.' },
     { key: 'location', label: 'Location / Occasion', type: 'text', required: true },
     { key: 'iconName', label: 'Icon', type: 'select', options: ['users', 'droplet', 'tree', 'building', 'heart'], required: true },
     { key: 'imageUrl', label: 'Cover Image', type: 'image', required: true },
@@ -132,7 +132,7 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'title', label: 'Title', type: 'text', required: true },
     { key: 'duration', label: 'Duration (e.g. "3:45")', type: 'text', required: true },
     { key: 'date', label: 'Date (YYYY-MM-DD)', type: 'text', placeholder: '2026-01-15', required: true },
-    { key: 'quote', label: 'Quote', type: 'textarea', required: true },
+    { key: 'quote', label: 'Quote', type: 'textarea', rows: 5, required: true },
     { key: 'videoThumbnail', label: 'Thumbnail Image', type: 'image', required: true },
     { key: 'videoUrl', label: 'Video URL (YouTube link recommended)', type: 'text' }
   ],
@@ -140,7 +140,7 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'rumor', label: 'Rumor / Claim', type: 'textarea', rows: 5, required: true },
     { key: 'category', label: 'Category', type: 'select', options: ['Environment', 'Land & Permits', 'Construction', 'Community', 'Service', 'Investment & Financial'], required: true },
     { key: 'status', label: 'Status', type: 'select', options: ['Verified Fact', 'Myth Debunked'], required: true },
-    { key: 'fact', label: 'Verified Fact / Response', type: 'textarea', required: true },
+    { key: 'fact', label: 'Verified Fact / Response', type: 'textarea', rows: 5, required: true },
     { key: 'officialSource', label: 'Official Source', type: 'text', required: true },
     { key: 'documentProof', label: 'Document Proof (optional)', type: 'text' },
     { key: 'verifiedDate', label: 'Verified Date (YYYY-MM-DD)', type: 'text', placeholder: '2026-01-15', required: true }
@@ -164,10 +164,10 @@ const FIELD_SCHEMAS: Record<UnifiedContentKind, QuickFieldConfig[]> = {
     { key: 'category', label: 'Category', type: 'select', required: true, options: ['Hospitality Academy', 'Sustainability & CEA', 'Youth Career', 'Language & Etiquette'] },
     { key: 'duration', label: 'Duration', type: 'text', required: true, placeholder: '3 Months (Full-Time)' },
     { key: 'instructor', label: 'Instructor', type: 'text', required: true, placeholder: 'Aviyana Senior Academy Faculty' },
-    { key: 'description', label: 'Description', type: 'textarea', required: true },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 5, required: true },
     { key: 'badge', label: 'Badge (e.g. scholarship note)', type: 'text', placeholder: '100% Sponsored Scholarship' },
     { key: 'schedule', label: 'Schedule', type: 'text', placeholder: 'Batch Starts: October 2026' },
-    { key: 'highlights', label: 'Highlights (one per line)', type: 'textarea', required: true, placeholder: 'Guaranteed employment at Aviyana Ceylon Resort\nFull monthly training stipend provided\nInternationally accredited certification' }
+    { key: 'highlights', label: 'Highlights (one per line)', type: 'textarea', rows: 5, required: true, placeholder: 'Guaranteed employment at Aviyana Ceylon Resort\nFull monthly training stipend provided\nInternationally accredited certification' }
   ],
   'education-media': [
     { key: 'type', label: 'Type', type: 'select', required: true, options: ['Student Voice', 'Event'] },

@@ -8,7 +8,14 @@
  * dev by default. Swap for Plausible later if preferred (this module is the
  * only place that would need to change; every call site below stays the
  * same).
+ *
+ * Cookie-consent gated: GA4 sets tracking cookies, so this only actually
+ * loads gtag.js once the visitor has explicitly accepted via the cookie
+ * consent banner (see CookieConsentBanner.tsx / cookieConsent.ts) — calling
+ * initAnalytics() before that consent exists is a silent no-op by design,
+ * not just a missing-config no-op.
  */
+import { hasAnalyticsConsent } from './cookieConsent';
 
 declare global {
   interface Window {
@@ -24,9 +31,15 @@ function gtag(...args: unknown[]) {
   window.dataLayer.push(args);
 }
 
-/** Call once at app startup. Injects gtag.js only if a measurement ID is configured. */
+/** Call once at app startup, and again whenever consent is granted via the
+ * cookie banner. Injects gtag.js only if a measurement ID is configured
+ * AND the visitor has accepted analytics cookies. */
 export function initAnalytics() {
   if (initialized) return;
+  if (!hasAnalyticsConsent()) {
+    console.info('[analytics] Waiting on cookie consent — analytics disabled until accepted.');
+    return;
+  }
   initialized = true;
 
   const measurementId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;

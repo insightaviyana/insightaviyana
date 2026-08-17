@@ -71,9 +71,9 @@ export async function updateMilestoneInDb(item: Milestone): Promise<string | nul
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
-  const { data, error } = await supabase.from('milestones').update(milestoneToRow(item)).eq('id', item.id).select('id');
+  const { data, error } = await supabase.from('milestones').upsert(milestoneToRow(item)).select('id');
   if (error) return error.message;
-  if (!data || data.length === 0) return 'Update did not save — no matching row found or no permission. It will look updated now but WILL revert on refresh.';
+  if (!data || data.length === 0) return 'Update did not save — you may not have permission to edit this item. It will look updated now but WILL revert on refresh.';
   return null;
 }
 export async function deleteMilestoneFromDb(id: string): Promise<string | null> {
@@ -153,9 +153,9 @@ export async function updateCsrImpactInDb(item: CSRImpact): Promise<string | nul
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
-  const { data, error } = await supabase.from('csr_impacts').update(csrToRow(item)).eq('id', item.id).select('id');
+  const { data, error } = await supabase.from('csr_impacts').upsert(csrToRow(item)).select('id');
   if (error) return error.message;
-  if (!data || data.length === 0) return 'Update did not save — no matching row found or no permission. It will look updated now but WILL revert on refresh.';
+  if (!data || data.length === 0) return 'Update did not save — you may not have permission to edit this item. It will look updated now but WILL revert on refresh.';
   return null;
 }
 export async function deleteCsrImpactFromDb(id: string): Promise<string | null> {
@@ -232,9 +232,9 @@ export async function updateVoiceCutInDb(item: VoiceCut): Promise<string | null>
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
-  const { data, error } = await supabase.from('voice_cuts').update(voiceCutToRow(item)).eq('id', item.id).select('id');
+  const { data, error } = await supabase.from('voice_cuts').upsert(voiceCutToRow(item)).select('id');
   if (error) return error.message;
-  if (!data || data.length === 0) return 'Update did not save — no matching row found or no permission. It will look updated now but WILL revert on refresh.';
+  if (!data || data.length === 0) return 'Update did not save — you may not have permission to edit this item. It will look updated now but WILL revert on refresh.';
   return null;
 }
 export async function deleteVoiceCutFromDb(id: string): Promise<string | null> {
@@ -314,9 +314,9 @@ export async function updateFactCheckInDb(item: FactCheckItem): Promise<string |
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
-  const { data, error } = await supabase.from('fact_checks').update(factCheckToRow(item)).eq('id', item.id).select('id');
+  const { data, error } = await supabase.from('fact_checks').upsert(factCheckToRow(item)).select('id');
   if (error) return error.message;
-  if (!data || data.length === 0) return 'Update did not save — no matching row found or no permission. It will look updated now but WILL revert on refresh.';
+  if (!data || data.length === 0) return 'Update did not save — you may not have permission to edit this item. It will look updated now but WILL revert on refresh.';
   return null;
 }
 export async function deleteFactCheckFromDb(id: string): Promise<string | null> {

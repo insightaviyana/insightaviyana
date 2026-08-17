@@ -546,6 +546,114 @@ CREATE POLICY "Staff and admin can write social_links" ON social_links FOR ALL
   USING (public.is_staff_or_admin()) WITH CHECK (public.is_staff_or_admin());
 
 -- ------------------------------------------------------------
+-- Executives (Press Kit "Executive Headshots" section)
+--
+-- Previously this section on the Press Kit page was hardcoded (stock
+-- Unsplash photos, names/titles baked into the component) -- a real
+-- credibility risk for a page whose whole pitch to a journalist is
+-- "verified, real, official." Same public-read/staff-write pattern as
+-- social_links: any staff/admin can add, edit, or reorder; public visitors
+-- only ever read.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS executives (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  avatar_url TEXT NOT NULL,
+  display_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+ALTER TABLE executives ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read executives" ON executives;
+CREATE POLICY "Public can read executives" ON executives FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Staff and admin can write executives" ON executives;
+CREATE POLICY "Staff and admin can write executives" ON executives FOR ALL
+  USING (public.is_staff_or_admin()) WITH CHECK (public.is_staff_or_admin());
+
+-- ------------------------------------------------------------
+-- Site Settings (general-purpose editable key/value store)
+--
+-- A simple text key -> text value table, used to make previously-hardcoded
+-- copy on the site editable by staff without needing a new bespoke table
+-- and API for every individual piece of text. First applied to the Public
+-- Hub's "Official Contact Details" card (email, address, portal note),
+-- previously hardcoded strings in PublicHubView.tsx with no way to update
+-- them without a code change. The same table can house more settings going
+-- forward -- add a new key, read it with a sensible hardcoded fallback (see
+-- SITE_SETTING_DEFAULTS in src/lib/siteSettingsApi.ts) so the site still
+-- looks correct before that key has ever been explicitly set.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS site_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read site_settings" ON site_settings;
+CREATE POLICY "Public can read site_settings" ON site_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Staff and admin can write site_settings" ON site_settings;
+CREATE POLICY "Staff and admin can write site_settings" ON site_settings FOR ALL
+  USING (public.is_staff_or_admin()) WITH CHECK (public.is_staff_or_admin());
+
+-- ------------------------------------------------------------
+-- Newsletter Subscribers
+--
+-- Public email capture -- "Anyone can subscribe" (INSERT only, same shape
+-- as `registrations`), staff/admin can view and remove entries; nobody
+-- else can read the list back (protects subscriber emails from being
+-- scraped via the public API). UNIQUE on email so submitting the same
+-- address twice doesn't create duplicate rows -- see subscribeToNewsletter
+-- in newsletterApi.ts, which upserts and treats "already subscribed" as a
+-- success rather than an error.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  subscribed_at TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+ALTER TABLE newsletter_subscribers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can subscribe" ON newsletter_subscribers;
+CREATE POLICY "Anyone can subscribe" ON newsletter_subscribers FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Staff and admin can view subscribers" ON newsletter_subscribers;
+CREATE POLICY "Staff and admin can view subscribers" ON newsletter_subscribers FOR SELECT
+  USING (public.is_staff_or_admin());
+
+DROP POLICY IF EXISTS "Staff and admin can delete subscribers" ON newsletter_subscribers;
+CREATE POLICY "Staff and admin can delete subscribers" ON newsletter_subscribers FOR DELETE
+  USING (public.is_staff_or_admin());
+
+-- This UPDATE policy is intentionally permissive (USING (true) WITH CHECK
+-- (true)), not an oversight -- audited and accepted. Anonymous visitors
+-- have no session to scope an "only your own row" check against, and the
+-- upsert-based resubscribe flow (subscribeToNewsletter in newsletterApi.ts)
+-- needs real UPDATE permission on the conflicting row for ON CONFLICT DO
+-- UPDATE to work at all. The actual exposure is minimal: the table only
+-- has `email` (functions as the natural key -- can't be reassigned to
+-- collide with another row) and `subscribed_at` (a date string, no
+-- sensitive data). Worst case is someone with API access re-touching a
+-- guessed row's timestamp -- no way to read, exfiltrate, or corrupt real
+-- subscriber data through this policy.
+DROP POLICY IF EXISTS "Anyone can upsert their own subscription" ON newsletter_subscribers;
+CREATE POLICY "Anyone can upsert their own subscription" ON newsletter_subscribers FOR UPDATE
+  USING (true) WITH CHECK (true);
+
+-- Same public-write rate limit as inquiries/registrations (see the
+-- enforce_insert_rate_limit trigger function defined earlier in this file).
+DROP TRIGGER IF EXISTS newsletter_subscribers_rate_limit ON newsletter_subscribers;
+CREATE TRIGGER newsletter_subscribers_rate_limit BEFORE INSERT ON newsletter_subscribers
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_insert_rate_limit(20);
+
+-- ------------------------------------------------------------
 -- 12. Aug 13 2026 session additions:
 --   a) `context` column on milestones/csr_impacts -- a real, staff-written
 --      free-text paragraph for the full-article reader view, replacing

@@ -90,16 +90,26 @@ export async function createCourseInDb(course: EducationCourse): Promise<string 
   return null;
 }
 
-/** Updates an existing course's row in Supabase by id. Returns null on success, or an error message string on failure/not-configured. */
+/** Updates an existing course's row in Supabase by id. Returns null on
+ * success, or an error message string on failure/not-configured. Uses
+ * `.upsert()` (self-heals a row whose original INSERT never actually
+ * landed) plus `.select()` to detect a genuine RLS-blocked write --
+ * previously this used a plain `.update()` with no `.select()` at all, so
+ * it wouldn't even have reported the "0 rows affected" case the way every
+ * other content type's update function does. */
 export async function updateCourseInDb(course: EducationCourse): Promise<string | null> {
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
 
-  const { error } = await supabase.from('courses').update(toRow(course)).eq('id', course.id);
+  const { data, error } = await supabase.from('courses').upsert(toRow(course)).select('id');
   if (error) {
     console.error('Supabase updateCourseInDb error:', error.message);
     return error.message;
+  }
+  if (!data || data.length === 0) {
+    console.error('Supabase updateCourseInDb: 0 rows affected for id', course.id);
+    return 'Update did not save — you may not have permission to edit this course. It will look updated now but WILL revert on refresh.';
   }
   return null;
 }

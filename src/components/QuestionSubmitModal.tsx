@@ -358,7 +358,7 @@ export const QuestionSubmitModal: React.FC<QuestionSubmitModalProps> = ({
                 <textarea
                   id="qsm-question"
                   required
-                  rows={4}
+                  rows={6}
                   placeholder="Type your question or press query here. Refers to official clearances, Grand Opening, or community projects..."
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}

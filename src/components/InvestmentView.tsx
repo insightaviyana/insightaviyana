@@ -61,7 +61,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
   return (
     <div className="space-y-10 pb-10">
       {/* Hero */}
-      <div className="bg-gradient-to-br from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-6 sm:p-8">
+      <div className="hero-band bg-gradient-to-br from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-6 sm:p-8">
         <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
           <TrendingUp size={16} />
           <span>Invest in Aviyana Ceylon Resort</span>
@@ -212,7 +212,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
       </section>
 
       {/* Inquiry CTA */}
-      <section className="bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/30 rounded-2xl p-6 text-center">
+      <section className="hero-band bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/30 rounded-2xl p-6 text-center">
         <HelpCircle size={28} className="text-amber-400 mx-auto mb-2" />
         <h3 className="text-lg font-serif font-bold text-white">Have a question about investing with us?</h3>
         <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
@@ -330,7 +330,7 @@ const ROICalculatorSection: React.FC<{ onOpenQuestionModal: () => void }> = ({ o
   const principalPct = (amount / total) * 100;
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-amber-950/20 to-slate-950 border border-amber-500/30 rounded-3xl p-6 sm:p-10 shadow-2xl">
+    <section className="hero-band relative overflow-hidden bg-gradient-to-br from-slate-950 via-amber-950/20 to-slate-950 border border-amber-500/30 rounded-3xl p-6 sm:p-10 shadow-2xl">
       {/* Decorative background glow */}
       <div className="absolute -top-24 -right-24 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />

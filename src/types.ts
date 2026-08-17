@@ -10,6 +10,17 @@ export type UserRole =
   | 'SOCIAL_MANAGER'    // Hotel School Crew (Social & Review Managers)
   | 'GUEST_COORDINATOR' // Hotel School Crew (Guest & Influencer Coordinator)
   | 'HOTEL_SCHOOL_CREW' // Hotel School Trainees & Crew
+  | 'STAFF_MEMBER'      // General-purpose role for staff who don't fit the
+                         // narrower departments above -- covers the shared
+                         // tools most day-to-day roles need (Content
+                         // Pipeline, Inquiry Desk, Fact-Check & FAQ) without
+                         // requiring a new named role + code change for
+                         // every new job title. A fully admin-configurable
+                         // custom-role system (create a named role, choose
+                         // exactly which tabs it sees) is a legitimate
+                         // larger feature for later -- this is the pragmatic
+                         // stopgap for "we need one more assignable role
+                         // today."
   | 'PUBLIC_VISITOR';   // Public Guest / Investor View
 
 // Top-level account tier, separate from the department-style UserRole above.
@@ -33,9 +44,9 @@ export interface User {
 export interface Milestone {
   id: string;
   title: string;
-  category: 'Clearance' | 'Construction' | 'CSR' | 'Hospitality';
+  category: 'Clearance' | 'Construction' | 'CSR' | 'Hospitality' | 'Environmental' | 'Grand Opening' | 'Safety & Security';
   date: string;
-  status: 'Verified' | 'In Progress' | 'Upcoming';
+  status: 'Verified' | 'In Progress' | 'Upcoming' | 'Completed';
   description: string;
   /** Optional extra background/context paragraph staff can write for the full-article reader view.
    * Free text, written per-post -- NOT auto-generated boilerplate. Shown after the description if present. */
@@ -263,5 +274,15 @@ export interface SocialLink {
   url: string;
   iconName: 'facebook' | 'instagram' | 'linkedin' | 'youtube' | 'tiktok' | 'whatsapp' | 'globe' | 'twitter';
   description: string;
+}
+
+/** Press Kit "Executive Headshots" -- editable by staff/admin (previously
+ * hardcoded). See executivesApi.ts / AdminContext.tsx. */
+export interface Executive {
+  id: string;
+  name: string;
+  title: string;
+  avatarUrl: string;
+  displayOrder: number;
 }
 

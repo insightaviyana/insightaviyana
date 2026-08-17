@@ -110,27 +110,38 @@ export async function createArticleInDb(article: ArticleItem): Promise<string | 
  * Updates an existing article's row in Supabase by id. Returns null on
  * success, or an error message string on failure/not-configured.
  *
- * IMPORTANT: Supabase's `.update()` does NOT error when the `.eq('id', ...)`
- * filter matches zero rows (e.g. an RLS policy silently blocking the write,
- * or the id no longer existing) -- it just reports success with an empty
- * result. That silent no-op was the likely cause of "Approve & Publish looks
- * like it worked, but reverts after a refresh": the UI updated optimistically
- * and nobody was ever told the DB write didn't actually land. Using
- * `.select()` here forces Supabase to return the updated row(s) so we can
- * detect and report that case instead of silently pretending it worked.
+ * Uses `.upsert()` rather than `.update()` -- this used to be a plain
+ * update, which meant an article that was added to local state (so it
+ * looks completely normal in the UI) but whose original INSERT silently
+ * failed or never landed (e.g. Supabase was briefly unreachable at
+ * creation time) could never be edited afterwards: `UPDATE ... WHERE id =
+ * X` finds zero matching rows for an id that was never actually inserted,
+ * so every subsequent edit permanently failed with "no matching row was
+ * found" -- a real, reported bug (confirmed on a real article whose first
+ * save had silently failed). `.upsert()` self-heals this exact case by
+ * inserting the row if it doesn't exist yet, instead of just failing.
+ *
+ * IMPORTANT: Supabase's `.update()`/`.upsert()` do NOT error when the RLS
+ * policy silently blocks the write -- they just report success with an
+ * empty result. That silent no-op was the original cause of "Approve &
+ * Publish looks like it worked, but reverts after a refresh." Using
+ * `.select()` here still forces Supabase to return the affected row(s) so
+ * a genuine permission-denied case (as opposed to a missing-row case,
+ * which upsert now fixes on its own) is still caught and reported rather
+ * than silently pretending it worked.
  */
 export async function updateArticleInDb(article: ArticleItem): Promise<string | null> {
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
 
-  const { data, error } = await supabase.from('announcements').update(toRow(article)).eq('id', article.id).select('id');
+  const { data, error } = await supabase.from('announcements').upsert(toRow(article)).select('id');
   if (error) {
     console.error('Supabase updateArticleInDb error:', error.message);
     return error.message;
   }
   if (!data || data.length === 0) {
-    const msg = 'Update did not save — no matching row was found or you may not have permission to edit this article. It will look updated now but WILL revert on refresh.';
+    const msg = 'Update did not save — you may not have permission to edit this article (e.g. only an admin can edit an already-published one). It will look updated now but WILL revert on refresh.';
     console.error('Supabase updateArticleInDb: 0 rows affected for id', article.id);
     return msg;
   }

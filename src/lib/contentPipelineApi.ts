@@ -90,23 +90,24 @@ export async function createContentPipelineInDb(item: ContentPipelineItem): Prom
 /**
  * Updates an existing content pipeline item's row in Supabase by id. Returns
  * null on success, or an error message string on failure/not-configured.
- * Uses `.select()` to detect a silent 0-rows-affected no-op (RLS block or a
- * stale id) instead of reporting false success -- see the longer comment on
- * updateArticleInDb in articlesApi.ts for why this matters.
+ * Uses `.upsert()` (self-heals a row whose original INSERT never actually
+ * landed -- see the longer comment on updateArticleInDb in articlesApi.ts)
+ * plus `.select()` to still detect a genuine RLS-blocked write instead of
+ * reporting false success.
  */
 export async function updateContentPipelineInDb(item: ContentPipelineItem): Promise<string | null> {
   if (!isSupabaseConfigured) return 'Supabase not configured';
   const supabase = getSupabase();
   if (!supabase) return 'Supabase not configured';
 
-  const { data, error } = await supabase.from('content_pipeline').update(toRow(item)).eq('id', item.id).select('id');
+  const { data, error } = await supabase.from('content_pipeline').upsert(toRow(item)).select('id');
   if (error) {
     console.error('Supabase updateContentPipelineInDb error:', error.message);
     return error.message;
   }
   if (!data || data.length === 0) {
     console.error('Supabase updateContentPipelineInDb: 0 rows affected for id', item.id);
-    return 'Approval did not save — no matching row was found or you may not have permission to edit this draft. It will look approved now but WILL revert on refresh.';
+    return 'Approval did not save — you may not have permission to edit this draft. It will look approved now but WILL revert on refresh.';
   }
   return null;
 }
