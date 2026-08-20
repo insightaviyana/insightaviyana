@@ -1,17 +1,36 @@
 @import "tailwindcss";
 
+/* Wires the two Tailwind font utilities (font-sans / font-serif) to the
+   site's actual fonts, so every element using those utility classes --
+   not just the handful of spots hand-edited below -- picks up the right
+   face automatically. This is what makes the font change apply site-wide
+   (every tab, page, form, fact-check, modal) rather than only the couple
+   of components that got bespoke classes. */
+@theme {
+  --font-sans: 'Source Sans 3', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Aviyana Post', 'Playfair Display', Georgia, serif;
+}
+
 /* ---- Official brand fonts ---------------------------------------------
    Two custom OpenType fonts, not on Google Fonts -- loaded locally from
    src/assets/fonts/ (Vite resolves and hashes these url()s automatically
    at build time, same as any other asset referenced from CSS).
+
    - "Aviyana Signature" (AmourModern-Regular.otf): the exact font used in
-     the resort's logo wordmark -- applied via .font-signature, used for
-     the "AVIYANA" text in the Navbar next to the logo mark.
-   - "Aviyana Post" (DahliaRoseSans.otf): the font used for published
-     posts/articles -- applied via .font-post, used for article/press
-     headlines specifically (not every heading site-wide -- see
-     AnnouncementsView/PublicHubView/CareersView/InvestmentView/
-     RelatedArticles' article title elements). */
+     the resort's logo. Applied ONLY to the literal brand wordmark itself
+     (.font-signature) -- the "AVIYANA" text in the Navbar, the
+     "AVIYANA CEYLON RESORT" hero banner headline on Public Hub, and the
+     Footer's brand mention. NOT used for general headings/page titles --
+     it's a script/display face, meant for the wordmark specifically, not
+     for running text of any length.
+
+   - "Aviyana Post" (DahliaRoseSans.otf): the resort's heading font. Set as
+     the site-wide heading font stack below (h1-h6 and the existing
+     .font-serif utility already used across every component's section
+     titles, article/post titles, and page headlines) -- so this one
+     change applies everywhere headings and banners already existed,
+     rather than needing every component individually edited. Do NOT use
+     for paragraph/body copy -- see .font-read below for that. */
 @font-face {
   font-family: 'Aviyana Signature';
   src: url('./assets/fonts/AmourModern-Regular.otf') format('opentype');
@@ -32,20 +51,39 @@
   font-family: 'Aviyana Signature', 'Playfair Display', Georgia, serif;
 }
 
+/* Kept as an explicit utility too (same font stack as the h1-h6/.font-serif
+   base rule below) for any element that needs the heading font but isn't
+   an <h1>-<h6> tag and doesn't already carry .font-serif. */
 .font-post {
   font-family: 'Aviyana Post', 'Playfair Display', Georgia, serif;
 }
 
+/* Body/paragraph reading font -- applies site-wide (see the @theme
+   --font-sans override above, which makes this the actual value behind
+   Tailwind's font-sans utility, and the html base rule below, which makes
+   it the default for anything with no explicit font utility at all).
+   .font-read is kept as an explicit utility too for any spot that needs
+   to force it back after being nested inside something with a different
+   font (e.g. inside a font-mono or font-serif container).
+
+   Source Sans 3: chosen over Dahlia Rose Sans (a display/heading face,
+   hard to read across full paragraphs -- that's the whole reason this is
+   split from .font-post) and over Inter (an earlier pick that didn't land
+   well) -- Source Sans 3 is Adobe's open-source workhorse text face, built
+   specifically for long-form on-screen reading. */
+.font-read {
+  font-family: 'Source Sans 3', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
 
 @layer base {
   html {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-family: 'Source Sans 3', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, .font-serif {
-    font-family: 'Playfair Display', Georgia, serif;
+  h1, h2, h3, h4, h5, h6, .font-serif {
+    font-family: 'Aviyana Post', 'Playfair Display', Georgia, serif;
   }
 }
 

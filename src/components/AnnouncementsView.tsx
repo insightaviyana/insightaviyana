@@ -684,7 +684,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
               {/* Article Content Body with Embedded Photos & Videos */}
               <ArticleContentRenderer
                 content={selectedArticle.content}
-                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed space-y-4 font-post"
+                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed space-y-4 font-read"
               />
 
               {/* Video Attachment Banner */}

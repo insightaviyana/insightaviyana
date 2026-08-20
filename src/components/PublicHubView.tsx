@@ -415,7 +415,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               className="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.4)] shrink-0"
             />
             <h1 className="text-2xl sm:text-4xl font-serif font-extrabold tracking-tight text-white leading-none">
-              <span className="bg-gradient-to-r from-amber-100 via-amber-300 to-amber-100 bg-clip-text text-transparent">
+              <span className="font-signature bg-gradient-to-r from-amber-100 via-amber-300 to-amber-100 bg-clip-text text-transparent">
                 AVIYANA CEYLON RESORT
               </span>
             </h1>
@@ -1355,7 +1355,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
             {/* Full Body Paragraphs */}
             <ArticleContentRenderer
               content={selectedArticleModal.fullBody || selectedArticleModal.description}
-              className={`space-y-4 text-sm text-slate-200 leading-relaxed ${selectedArticleModal.sourceType === 'article' ? 'font-post' : 'font-sans'}`}
+              className={`space-y-4 text-sm text-slate-200 leading-relaxed ${selectedArticleModal.sourceType === 'article' ? 'font-read' : 'font-sans'}`}
             />
 
             {/* Related Stories -- only for a real article (not a milestone/

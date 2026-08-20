@@ -38,8 +38,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateTab, onOpenQuestionMod
             </button>
           )}
         </div>
-        <div className="text-[11px] text-slate-500 font-mono text-center sm:text-right">
-          &copy; {new Date().getFullYear()} Aviyana Ceylon Resort &middot; insight.aviyana.lk
+        <div className="text-[11px] text-slate-500 font-mono text-center sm:text-right flex items-center gap-1.5 flex-wrap justify-center sm:justify-end">
+          <span>&copy; {new Date().getFullYear()}</span>
+          <span className="font-signature text-sm text-slate-400 tracking-wide">Aviyana Ceylon Resort</span>
+          <span>&middot; insight.aviyana.lk</span>
         </div>
       </div>
     </footer>

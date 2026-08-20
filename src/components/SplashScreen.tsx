@@ -23,7 +23,7 @@ export const SplashScreen: React.FC = () => (
       />
     </div>
     <div className="flex flex-col items-center gap-2">
-      <p className="font-serif text-lg text-white tracking-wide">Aviyana Insight</p>
+      <p className="font-signature text-xl text-white tracking-wide">Aviyana Insight</p>
       <div className="flex items-center gap-1.5">
         {[0, 1, 2].map(i => (
           <span

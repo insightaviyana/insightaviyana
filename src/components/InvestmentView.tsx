@@ -286,7 +286,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
               <h2 className="text-xl font-post font-bold text-white">{selectedArticle.title}</h2>
               <p className="text-sm text-slate-400 mt-1">{selectedArticle.subtitle}</p>
               <div className="mt-4 text-sm text-slate-200">
-                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4 font-post" />
+                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4 font-read" />
               </div>
               <RelatedArticles
                 articles={articles}
