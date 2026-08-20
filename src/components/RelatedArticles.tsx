@@ -61,7 +61,7 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({ articles, curr
             )}
             <div className="p-2.5">
               <div className="text-[9px] font-mono text-amber-400/90 uppercase">{article.category}</div>
-              <h5 className="text-xs font-serif font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2 mt-0.5">
+              <h5 className="text-xs font-post font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2 mt-0.5">
                 {article.title}
               </h5>
             </div>

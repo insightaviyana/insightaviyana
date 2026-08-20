@@ -133,7 +133,7 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
                       </span>
                     )}
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-white mt-1 group-hover:text-amber-300 transition-colors line-clamp-2">
+                  <h3 className="text-sm font-post font-bold text-white mt-1 group-hover:text-amber-300 transition-colors line-clamp-2">
                     {article.title}
                   </h3>
                   <p className="text-xs text-slate-400 mt-1 line-clamp-2">{article.subtitle}</p>
@@ -283,10 +283,10 @@ export const InvestmentView: React.FC<InvestmentViewProps> = ({
                 )}
                 <UpdatedBadge lastEditedAt={selectedArticle.lastEditedAt} />
               </div>
-              <h2 className="text-xl font-serif font-bold text-white">{selectedArticle.title}</h2>
+              <h2 className="text-xl font-post font-bold text-white">{selectedArticle.title}</h2>
               <p className="text-sm text-slate-400 mt-1">{selectedArticle.subtitle}</p>
               <div className="mt-4 text-sm text-slate-200">
-                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4" />
+                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4 font-post" />
               </div>
               <RelatedArticles
                 articles={articles}

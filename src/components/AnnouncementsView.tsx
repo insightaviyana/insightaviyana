@@ -492,7 +492,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                     </span>
                   )}
 
-                  <h4 className="text-sm font-serif font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
+                  <h4 className="text-sm font-post font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
                     {art.title}
                   </h4>
 
@@ -601,7 +601,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                     )}
                     <UpdatedBadge lastEditedAt={selectedArticle.lastEditedAt} />
                   </div>
-                  <h2 className="text-2xl font-serif font-bold text-white">{selectedArticle.title}</h2>
+                  <h2 className="text-2xl font-post font-bold text-white">{selectedArticle.title}</h2>
                 </div>
               </div>
 
@@ -684,7 +684,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
               {/* Article Content Body with Embedded Photos & Videos */}
               <ArticleContentRenderer
                 content={selectedArticle.content}
-                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed space-y-4"
+                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed space-y-4 font-post"
               />
 
               {/* Video Attachment Banner */}

@@ -242,7 +242,7 @@ export const CareersView: React.FC<CareersViewProps> = ({
                   )}
                 </div>
                 <div className="p-4">
-                  <h3 className="text-sm font-serif font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
+                  <h3 className="text-sm font-post font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
                     {article.title}
                   </h3>
                   <p className="text-xs text-slate-300 mt-1.5 line-clamp-2">{article.subtitle}</p>
@@ -373,10 +373,10 @@ export const CareersView: React.FC<CareersViewProps> = ({
                 <span className="text-[10px] font-mono font-bold uppercase text-amber-400 tracking-wider">{selectedArticle.date}</span>
                 <UpdatedBadge lastEditedAt={selectedArticle.lastEditedAt} />
               </div>
-              <h2 className="text-xl font-serif font-bold text-white">{selectedArticle.title}</h2>
+              <h2 className="text-xl font-post font-bold text-white">{selectedArticle.title}</h2>
               <p className="text-sm text-amber-300/90 mt-1">{selectedArticle.subtitle}</p>
               <div className="mt-4 text-sm text-slate-200">
-                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4" />
+                <ArticleContentRenderer content={selectedArticle.content} className="space-y-4 font-post" />
               </div>
               <RelatedArticles
                 articles={articles}

@@ -578,7 +578,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
                           <span>{art.category}</span>
                           <span className="text-amber-300/80 group-hover:underline">Click to read full article &rarr;</span>
                         </div>
-                        <h3 className="text-base font-serif font-bold text-white group-hover:text-amber-300 transition-colors">
+                        <h3 className="text-base font-post font-bold text-white group-hover:text-amber-300 transition-colors">
                           {art.title}
                         </h3>
                         <p className="text-xs text-slate-300 mt-2 leading-relaxed line-clamp-3">
@@ -1294,7 +1294,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
               <div className="text-xs text-amber-400/90 font-mono mb-1">
                 📅 Published Date: {selectedArticleModal.date}
               </div>
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white leading-tight">
+              <h2 className={`text-2xl sm:text-3xl font-bold text-white leading-tight ${selectedArticleModal.sourceType === 'article' ? 'font-post' : 'font-serif'}`}>
                 {selectedArticleModal.title}
               </h2>
             </div>
@@ -1355,7 +1355,7 @@ export const PublicHubView: React.FC<PublicHubViewProps> = ({
             {/* Full Body Paragraphs */}
             <ArticleContentRenderer
               content={selectedArticleModal.fullBody || selectedArticleModal.description}
-              className="space-y-4 text-sm text-slate-200 leading-relaxed font-sans"
+              className={`space-y-4 text-sm text-slate-200 leading-relaxed ${selectedArticleModal.sourceType === 'article' ? 'font-post' : 'font-sans'}`}
             />
 
             {/* Related Stories -- only for a real article (not a milestone/

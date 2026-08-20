@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
-                <span className="font-serif text-base sm:text-lg font-bold tracking-tight text-white">AVIYANA</span>
+                <span className="font-signature text-base sm:text-lg font-bold tracking-tight text-white">AVIYANA</span>
                 <span className="text-[10px] uppercase font-semibold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">CEYLON</span>
               </div>
               <div className="hidden sm:flex text-[11px] text-amber-300/70 font-mono items-center space-x-1">
